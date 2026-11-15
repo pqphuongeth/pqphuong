@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sổ Thu Chi – Quản lý chi tiêu cá nhân</title>
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="js/vendor/chart.umd.min.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <!-- Thanh điều hướng -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">₫</div>
+        <div>
+          <div class="brand-name">Sổ Thu Chi</div>
+          <div class="brand-sub">Quản lý tài chính cá nhân</div>
+        </div>
+      </div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="dashboard"><span class="nav-ico">🏠</span><span>Tổng quan</span></button>
+        <button class="nav-item" data-view="transactions"><span class="nav-ico">📒</span><span>Giao dịch</span></button>
+        <button class="nav-item" data-view="reports"><span class="nav-ico">📊</span><span>Thống kê</span></button>
+        <button class="nav-item" data-view="budgets"><span class="nav-ico">🎯</span><span>Ngân sách</span></button>
+        <button class="nav-item" data-view="settings"><span class="nav-ico">⚙️</span><span>Cài đặt</span></button>
+      </nav>
+      <button class="btn btn-primary btn-add-side" data-action="add">＋ Thêm giao dịch</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">Tổng quan</h1>
+          <div class="muted" id="todayLabel"></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng/tối">🌙</button>
+          <button class="btn btn-primary hide-mobile" data-action="add">＋ Thêm</button>
+        </div>
+      </header>
+
+      <!-- ============ TỔNG QUAN ============ -->
+      <section class="view active" id="view-dashboard">
+        <div class="hero card">
+          <div class="hero-left">
+            <div class="hero-label">Số dư tích lũy</div>
+            <div class="hero-value" id="dbBalance">0 ₫</div>
+            <div class="hero-sub" id="dbBalanceSub"></div>
+          </div>
+          <div class="hero-right">
+            <div class="hero-mini"><span>Hôm nay đã chi</span><b id="dbToday">0 ₫</b></div>
+            <div class="hero-mini"><span>Chi trung bình/ngày (tháng này)</span><b id="dbAvg">0 ₫</b></div>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="dbStats"></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Thu – Chi 6 tháng gần nhất</h3></div>
+            <div class="chart-box"><canvas id="dbTrendChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Cơ cấu chi tiêu tháng này</h3></div>
+            <div class="chart-box chart-pie"><canvas id="dbPieChart"></canvas></div>
+            <div class="empty-chart hidden" id="dbPieEmpty">Chưa có khoản chi nào trong tháng</div>
+            <div id="dbPieTable"></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h3>Cảnh báo ngân sách</h3>
+              <button class="link-btn" data-goto="budgets">Quản lý →</button>
+            </div>
+            <div id="dbBudgetAlerts"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h3>Giao dịch gần đây</h3>
+              <button class="link-btn" data-goto="transactions">Xem tất cả →</button>
+            </div>
+            <div id="dbRecent"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ GIAO DỊCH ============ -->
+      <section class="view" id="view-transactions">
+        <div class="card filters">
+          <input type="search" id="fSearch" class="input" placeholder="🔍 Tìm theo ghi chú, danh mục..." />
+          <select id="fType" class="input">
+            <option value="all">Tất cả loại</option>
+            <option value="income">Thu nhập</option>
+            <option value="expense">Chi tiêu</option>
+          </select>
+          <select id="fCat" class="input"></select>
+          <input type="date" id="fFrom" class="input" title="Từ ngày" />
+          <input type="date" id="fTo" class="input" title="Đến ngày" />
+          <button class="btn btn-ghost" id="fReset">Xóa lọc</button>
+        </div>
+        <div class="summary-strip" id="txSummary"></div>
+        <div id="txList"></div>
+      </section>
+
+      <!-- ============ THỐNG KÊ ============ -->
+      <section class="view" id="view-reports">
+        <div class="card report-toolbar">
+          <div class="segmented" id="periodTabs">
+            <button data-period="day">Ngày</button>
+            <button data-period="week">Tuần</button>
+            <button data-period="month" class="active">Tháng</button>
+            <button data-period="quarter">Quý</button>
+            <button data-period="year">Năm</button>
+          </div>
+          <div class="period-nav">
+            <button class="icon-btn" id="prevPeriod" title="Kỳ trước">‹</button>
+            <div class="period-label" id="periodLabel"></div>
+            <button class="icon-btn" id="nextPeriod" title="Kỳ sau">›</button>
+            <button class="btn btn-ghost btn-sm" id="currentPeriod">Hiện tại</button>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="rpStats"></div>
+
+        <div class="card">
+          <div class="card-head"><h3 id="rpTrendTitle">Diễn biến thu – chi</h3></div>
+          <div class="chart-box chart-lg"><canvas id="rpTrendChart"></canvas></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head"><h3>Chi tiêu theo danh mục</h3></div>
+            <div class="chart-box chart-pie"><canvas id="rpExpPie"></canvas></div>
+            <div class="empty-chart hidden" id="rpExpEmpty">Không có khoản chi trong kỳ</div>
+            <div id="rpExpTable"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Thu nhập theo nguồn</h3></div>
+            <div class="chart-box chart-pie"><canvas id="rpIncPie"></canvas></div>
+            <div class="empty-chart hidden" id="rpIncEmpty">Không có khoản thu trong kỳ</div>
+            <div id="rpIncTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NGÂN SÁCH ============ -->
+      <section class="view" id="view-budgets">
+        <div class="card report-toolbar">
+          <div>
+            <h3 style="margin:0">Hạn mức chi tiêu hằng tháng</h3>
+            <div class="muted small">Đặt hạn mức cho từng khoản chi để kiểm soát. Để trống = không giới hạn.</div>
+          </div>
+          <div class="period-nav">
+            <button class="icon-btn" id="bPrev">‹</button>
+            <div class="period-label" id="bLabel"></div>
+            <button class="icon-btn" id="bNext">›</button>
+          </div>
+        </div>
+        <div class="card budget-total" id="bTotal"></div>
+        <div class="budget-list" id="bList"></div>
+      </section>
+
+      <!-- ============ CÀI ĐẶT ============ -->
+      <section class="view" id="view-settings">
+        <div class="grid-2">
+          <div class="card">
+            <h3>Sao lưu & khôi phục</h3>
+            <p class="muted small">Dữ liệu được lưu ngay trên trình duyệt của bạn. Hãy sao lưu định kỳ để không bị mất.</p>
+            <div class="btn-col">
+              <button class="btn btn-primary" id="exportJson">⬇️ Sao lưu dữ liệu (.json)</button>
+              <label class="btn btn-ghost">⬆️ Khôi phục từ file .json
+                <input type="file" id="importJson" accept=".json,application/json" hidden />
+              </label>
+              <button class="btn btn-ghost" id="exportCsv">📄 Xuất Excel (.csv)</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Dữ liệu</h3>
+            <p class="muted small">Nạp dữ liệu mẫu 12 tháng để dùng thử các tính năng thống kê.</p>
+            <div class="btn-col">
+              <button class="btn btn-ghost" id="loadSample">✨ Nạp dữ liệu mẫu</button>
+              <button class="btn btn-danger" id="clearAll">🗑️ Xóa toàn bộ dữ liệu</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Danh mục</h3>
+          <div class="grid-2">
+            <div>
+              <h4 class="income-text">10 khoản thu nhập</h4>
+              <div class="cat-chips" id="incomeCatList"></div>
+            </div>
+            <div>
+              <h4 class="expense-text">15 khoản chi tiêu</h4>
+              <div class="cat-chips" id="expenseCatList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Nút thêm nhanh (mobile) -->
+  <button class="fab" data-action="add" aria-label="Thêm giao dịch">＋</button>
+
+  <!-- ============ MODAL GIAO DỊCH ============ -->
+  <div class="modal-backdrop hidden" id="txModal">
+    <form class="modal" id="txForm" autocomplete="off">
+      <div class="modal-head">
+        <h3 id="txModalTitle">Thêm giao dịch</h3>
+        <button type="button" class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="type-toggle" id="typeToggle">
+        <button type="button" data-type="expense" class="active expense">Chi tiêu</button>
+        <button type="button" data-type="income" class="income">Thu nhập</button>
+      </div>
+      <label class="field">
+        <span>Số tiền</span>
+        <div class="amount-wrap">
+          <input type="text" inputmode="numeric" id="txAmount" class="input amount-input" placeholder="0" required />
+          <span class="currency">₫</span>
+        </div>
+        <div class="quick-amounts" id="quickAmounts"></div>
+      </label>
+      <div class="field">
+        <span>Danh mục</span>
+        <div class="cat-grid" id="catGrid"></div>
+      </div>
+      <div class="field-row">
+        <label class="field">
+          <span>Ngày</span>
+          <input type="date" id="txDate" class="input" required />
+        </label>
+        <label class="field">
+          <span>Ghi chú</span>
+          <input type="text" id="txNote" class="input" maxlength="120" placeholder="Ví dụ: ăn trưa với đồng nghiệp" />
+        </label>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-danger hidden" id="txDelete">Xóa</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" data-close>Hủy</button>
+        <button type="submit" class="btn btn-primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</body>
+</html>

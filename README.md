@@ -1,0 +1,34 @@
+# Sổ Thu Chi – Ứng dụng quản lý chi tiêu cá nhân
+
+Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài đặt, không cần server). Dữ liệu được lưu ngay trên máy của bạn (localStorage).
+
+## Cách dùng
+- Mở file `index.html` bằng trình duyệt (Chrome, Edge, Safari, Firefox) là dùng được, kể cả khi không có mạng.
+- Hoặc chạy server tĩnh: `python3 -m http.server` rồi vào http://localhost:8000
+- Lần đầu dùng: **Cài đặt → Nạp dữ liệu mẫu** để xem thử thống kê.
+- Phím tắt: nhấn **N** để thêm giao dịch nhanh, **Esc** để đóng.
+
+## Tính năng
+| Màn hình | Nội dung |
+|---|---|
+| **Tổng quan** | Số dư tích lũy, thu/chi/còn lại tháng này, tỷ lệ tiết kiệm, so sánh với tháng trước, biểu đồ 6 tháng, cơ cấu chi tiêu, cảnh báo ngân sách, giao dịch gần đây |
+| **Giao dịch** | Sổ ghi chép nhóm theo ngày; tìm kiếm, lọc theo loại / danh mục / khoảng ngày; bấm vào dòng để sửa, xóa |
+| **Thống kê** | Theo **Ngày / Tuần / Tháng / Quý / Năm**, chuyển kỳ trước/sau; tổng thu, tổng chi, chênh lệch, chi trung bình/ngày, % thay đổi so với kỳ trước; biểu đồ cột diễn biến và biểu đồ tròn + bảng xếp hạng theo danh mục |
+| **Ngân sách** | Đặt hạn mức tháng cho từng khoản chi, thanh tiến độ màu xanh / vàng (≥80%) / đỏ (vượt), tự cảnh báo khi nhập khoản chi vượt hạn mức |
+| **Cài đặt** | Sao lưu / khôi phục (.json), xuất Excel (.csv), dữ liệu mẫu, xóa dữ liệu, giao diện sáng/tối |
+
+### 10 khoản thu nhập
+Lương · Thưởng · Kinh doanh · Đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng · Được tặng / Lì xì · Thu nhập khác
+
+### 15 khoản chi tiêu
+Ăn uống · Nhà ở / Thuê nhà · Điện, nước, gas · Đi lại / Xăng xe · Mua sắm · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Điện thoại / Internet · Bảo hiểm · Con cái · Hiếu hỉ / Biếu tặng · Làm đẹp / Thể thao · Trả nợ / Trả góp · Chi phí khác
+
+## Cấu trúc
+```
+index.html                 Giao diện
+css/style.css              Kiểu dáng (responsive, sáng/tối)
+js/app.js                  Toàn bộ logic
+js/vendor/chart.umd.min.js Chart.js 4.4.1 (MIT) – vẽ biểu đồ
+```
+
+> Lưu ý: dữ liệu nằm trong trình duyệt đang dùng. Xóa dữ liệu trình duyệt sẽ mất dữ liệu – hãy dùng **Sao lưu** định kỳ.
