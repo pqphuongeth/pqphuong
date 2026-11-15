@@ -11,17 +11,26 @@ Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài 
 ## Tính năng
 | Màn hình | Nội dung |
 |---|---|
-| **Tổng quan** | Số dư tích lũy, thu/chi/còn lại tháng này, tỷ lệ tiết kiệm, so sánh với tháng trước, biểu đồ 6 tháng, cơ cấu chi tiêu, cảnh báo ngân sách, giao dịch gần đây |
-| **Giao dịch** | Sổ ghi chép nhóm theo ngày; tìm kiếm, lọc theo loại / danh mục / khoảng ngày; bấm vào dòng để sửa, xóa |
-| **Thống kê** | Theo **Ngày / Tuần / Tháng / Quý / Năm**, chuyển kỳ trước/sau; tổng thu, tổng chi, chênh lệch, chi trung bình/ngày, % thay đổi so với kỳ trước; biểu đồ cột diễn biến và biểu đồ tròn + bảng xếp hạng theo danh mục |
+| **Tổng quan** | Tổng tài sản (tiền mặt + đang đầu tư), thu/chi/đầu tư/tiền mặt còn lại tháng này, danh mục đầu tư, tỷ lệ tiết kiệm, so sánh với tháng trước, biểu đồ 6 tháng, cơ cấu chi tiêu, cảnh báo ngân sách, giao dịch gần đây |
+| **Giao dịch** | Sổ ghi chép nhóm theo ngày; tìm kiếm, lọc theo loại (thu / chi / đầu tư) / danh mục / khoảng ngày; bấm vào dòng để sửa, xóa |
+| **Thống kê** | Theo **Ngày / Tuần / Tháng / Quý / Năm**, chuyển kỳ trước/sau; tổng thu, tổng chi, đầu tư, tiền mặt còn lại, chi trung bình/ngày, % thay đổi so với kỳ trước; biểu đồ cột diễn biến và biểu đồ tròn + bảng xếp hạng theo danh mục |
 | **Ngân sách** | Đặt hạn mức tháng cho từng khoản chi, thanh tiến độ màu xanh / vàng (≥80%) / đỏ (vượt), tự cảnh báo khi nhập khoản chi vượt hạn mức |
 | **Cài đặt** | Sao lưu / khôi phục (.json), xuất Excel (.csv), dữ liệu mẫu, xóa dữ liệu, giao diện sáng/tối |
 
 ### 10 khoản thu nhập
-Lương · Thưởng · Kinh doanh · Đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng · Được tặng / Lì xì · Thu nhập khác
+Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng · Được tặng / Lì xì · Thu nhập khác
 
 ### 15 khoản chi tiêu
 Ăn uống · Nhà ở / Thuê nhà · Điện, nước, gas · Đi lại / Xăng xe · Mua sắm · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Điện thoại / Internet · Bảo hiểm · Con cái · Hiếu hỉ / Biếu tặng · Làm đẹp / Thể thao · Trả nợ / Trả góp · Chi phí khác
+
+### 5 khoản đầu tư
+Chứng khoán / Cổ phiếu · Chứng chỉ quỹ · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
+
+Mỗi giao dịch đầu tư là **Rót vốn** (chuyển tiền mặt vào đầu tư) hoặc **Rút vốn** (bán / tất toán về tiền mặt).
+Đầu tư không bị tính là chi tiêu: tiền chỉ chuyển từ *tiền mặt* sang *tài sản đầu tư*.
+- Tổng tài sản = Tổng thu − Tổng chi
+- Tiền mặt = Tổng thu − Tổng chi − (Rót vốn − Rút vốn)
+- Lãi/cổ tức nhận được ghi ở khoản thu "Lãi đầu tư / Cổ tức" hoặc "Lãi tiết kiệm"
 
 ## Cấu trúc
 ```

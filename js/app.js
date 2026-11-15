@@ -10,7 +10,7 @@
     { id: 'luong',       name: 'Lương',               icon: '💼', color: '#10b981' },
     { id: 'thuong',      name: 'Thưởng',              icon: '🎁', color: '#22c55e' },
     { id: 'kinhdoanh',   name: 'Kinh doanh',          icon: '🏪', color: '#14b8a6' },
-    { id: 'dautu',       name: 'Đầu tư / Cổ tức',     icon: '📈', color: '#0ea5e9' },
+    { id: 'dautu',       name: 'Lãi đầu tư / Cổ tức', icon: '📈', color: '#0ea5e9' },
     { id: 'laitietkiem', name: 'Lãi tiết kiệm',       icon: '🏦', color: '#3b82f6' },
     { id: 'chothue',     name: 'Cho thuê tài sản',    icon: '🔑', color: '#6366f1' },
     { id: 'freelance',   name: 'Làm thêm / Freelance',icon: '💻', color: '#8b5cf6' },
@@ -35,7 +35,16 @@
     { id: 'trano',     name: 'Trả nợ / Trả góp',      icon: '💳', color: '#78716c' },
     { id: 'chikhac',   name: 'Chi phí khác',          icon: '📦', color: '#94a3b8' },
   ];
-  const CAT_MAP = Object.fromEntries([...INCOME_CATS, ...EXPENSE_CATS].map(c => [c.id, c]));
+  const INVEST_CATS = [
+    { id: 'chungkhoan',  name: 'Chứng khoán / Cổ phiếu', icon: '📊', color: '#2563eb' },
+    { id: 'quy',         name: 'Chứng chỉ quỹ',          icon: '🧺', color: '#0891b2' },
+    { id: 'vang',        name: 'Vàng / Bạc',             icon: '🥇', color: '#ca8a04' },
+    { id: 'batdongsan',  name: 'Bất động sản',           icon: '🏘️', color: '#7c3aed' },
+    { id: 'guitietkiem', name: 'Gửi tiết kiệm',          icon: '🏛️', color: '#059669' },
+  ];
+  const CATS_BY_TYPE = { income: INCOME_CATS, expense: EXPENSE_CATS, invest: INVEST_CATS };
+  const TYPE_NAMES = { income: 'Thu nhập', expense: 'Chi tiêu', invest: 'Đầu tư' };
+  const CAT_MAP = Object.fromEntries([...INCOME_CATS, ...EXPENSE_CATS, ...INVEST_CATS].map(c => [c.id, c]));
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
 
   // ---------------- LƯU TRỮ ----------------
@@ -61,7 +70,9 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   const nf = new Intl.NumberFormat('vi-VN');
   const money = n => nf.format(Math.round(n)) + ' ₫';
-  const signed = (n, type) => (type === 'income' ? '+' : '−') + money(n);
+  // Đầu tư: dir 'in' = rót vốn (tiền mặt giảm), 'out' = rút vốn (tiền mặt tăng)
+  const isWithdraw = t => t.type === 'invest' && t.dir === 'out';
+  const txSigned = t => (t.type === 'income' || isWithdraw(t) ? '+' : '−') + money(t.amount);
   const shortMoney = n => {
     const a = Math.abs(n), s = n < 0 ? '-' : '';
     if (a >= 1e9) return s + +(a / 1e9).toFixed(1) + ' tỷ';
@@ -91,15 +102,19 @@
   const parseAmount = s => Number(String(s).replace(/[^\d]/g, '')) || 0;
 
   function sumRange(startKey, endKey) {
-    let income = 0, expense = 0, count = 0;
+    let income = 0, expense = 0, invest = 0, count = 0;
     const byCat = {};
     for (const t of state.transactions) {
       if (t.date < startKey || t.date > endKey) continue;
       count++;
-      if (t.type === 'income') income += t.amount; else expense += t.amount;
-      byCat[t.cat] = (byCat[t.cat] || 0) + t.amount;
+      const amt = isWithdraw(t) ? -t.amount : t.amount;
+      if (t.type === 'income') income += amt;
+      else if (t.type === 'expense') expense += amt;
+      else invest += amt;
+      byCat[t.cat] = (byCat[t.cat] || 0) + amt;
     }
-    return { income, expense, net: income - expense, count, byCat };
+    // net: tích lũy (thu − chi); cash: tiền mặt còn lại sau khi đầu tư
+    return { income, expense, invest, net: income - expense, cash: income - expense - invest, count, byCat };
   }
 
   // ---------------- KỲ THỐNG KÊ ----------------
@@ -192,8 +207,8 @@
     const c = catOf(t.cat);
     return `<div class="tx" data-id="${t.id}">
       <div class="tx-ico" style="background:${c.color}22">${c.icon}</div>
-      <div class="tx-main"><div class="tx-cat">${esc(c.name)}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
-      <div class="tx-amt ${t.type}">${signed(t.amount, t.type)}</div>
+      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
+      <div class="tx-amt ${t.type}">${txSigned(t)}</div>
       <button class="tx-del" data-del="${t.id}" title="Xóa">🗑️</button>
     </div>`;
   }
@@ -216,7 +231,7 @@
     Chart.defaults.color = cssVar('--muted');
     charts[id] = new Chart(el, config);
   }
-  function barConfig(labels, inc, exp) {
+  function barConfig(labels, inc, exp, inv) {
     const grid = cssVar('--border');
     return {
       type: 'bar',
@@ -225,6 +240,7 @@
         datasets: [
           { label: 'Thu nhập', data: inc, backgroundColor: cssVar('--income'), borderRadius: 6, maxBarThickness: 28 },
           { label: 'Chi tiêu', data: exp, backgroundColor: cssVar('--expense'), borderRadius: 6, maxBarThickness: 28 },
+          { label: 'Đầu tư', data: inv, backgroundColor: cssVar('--invest'), borderRadius: 6, maxBarThickness: 28 },
         ],
       },
       options: {
@@ -290,7 +306,7 @@
     const todayS = sumRange(tk, tk);
 
     $('#dbBalance').textContent = money(all.net);
-    $('#dbBalanceSub').textContent = `Tổng thu ${money(all.income)} • Tổng chi ${money(all.expense)}`;
+    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}`;
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
@@ -299,19 +315,21 @@
     $('#dbStats').innerHTML =
       statCard('⬆️', 'ico-income', `Thu nhập tháng ${t.getMonth() + 1}`, money(cur.income), deltaInfo(cur.income, prev.income, true, 'tháng trước')) +
       statCard('⬇️', 'ico-expense', `Chi tiêu tháng ${t.getMonth() + 1}`, money(cur.expense), deltaInfo(cur.expense, prev.expense, false, 'tháng trước')) +
-      statCard('💵', 'ico-primary', 'Còn lại tháng này', money(cur.net), null) +
-      statCard('🐷', 'ico-warn', 'Tỷ lệ tiết kiệm', cur.income ? rate.toFixed(1) + '%' : '—', { cls: 'muted', text: 'Còn lại / Thu nhập' });
+      statCard('📊', 'ico-invest', `Đầu tư tháng ${t.getMonth() + 1}`, money(cur.invest), deltaInfo(cur.invest, prev.invest, true, 'tháng trước')) +
+      statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: 'Thu − Chi − Đầu tư' }) +
+      statCard('🐷', 'ico-warn', 'Tỷ lệ tiết kiệm & đầu tư', cur.income ? rate.toFixed(1) + '%' : '—', { cls: 'muted', text: '(Thu − Chi) / Thu' });
 
     // Xu hướng 6 tháng
-    const labels = [], inc = [], exp = [];
+    const labels = [], inc = [], exp = [], inv = [];
     for (let i = 5; i >= 0; i--) {
       const s = new Date(t.getFullYear(), t.getMonth() - i, 1), e = new Date(t.getFullYear(), t.getMonth() - i + 1, 0);
       const r = sumRange(keyOf(s), keyOf(e));
-      labels.push(`T${s.getMonth() + 1}/${String(s.getFullYear()).slice(2)}`); inc.push(r.income); exp.push(r.expense);
+      labels.push(`T${s.getMonth() + 1}/${String(s.getFullYear()).slice(2)}`); inc.push(r.income); exp.push(r.expense); inv.push(r.invest);
     }
-    drawChart('dbTrendChart', barConfig(labels, inc, exp));
+    drawChart('dbTrendChart', barConfig(labels, inc, exp, inv));
     drawPie('dbPieChart', 'dbPieEmpty', cur.byCat, EXPENSE_CATS);
     $('#dbPieTable').innerHTML = catTable(cur.byCat, EXPENSE_CATS, cur.expense, 5);
+    renderPortfolio(all);
 
     // Cảnh báo ngân sách
     const alerts = EXPENSE_CATS.filter(c => state.budgets[c.id] > 0)
@@ -336,6 +354,19 @@
       : emptyState('Chưa có giao dịch nào. Hãy bắt đầu ghi chép!', true);
   }
 
+  // Danh mục đầu tư tích lũy (tổng rót − tổng rút theo từng khoản)
+  function renderPortfolio(all) {
+    $('#dbPortTotal').textContent = money(all.invest);
+    drawPie('dbPortPie', 'dbPortEmpty', all.byCat, INVEST_CATS);
+    $('#dbPortTable').innerHTML = INVEST_CATS.map(c => {
+      const v = all.byCat[c.id] || 0, p = all.invest > 0 && v > 0 ? v / all.invest * 100 : 0;
+      return `<div class="cat-row"><div class="emoji">${c.icon}</div>
+        <div><div class="name">${esc(c.name)} <small>${p.toFixed(1)}%</small></div>
+        <div class="bar"><i style="width:${p}%;background:${c.color}"></i></div></div>
+        <div class="val">${money(v)}</div></div>`;
+    }).join('');
+  }
+
   function budgetStatus(p) {
     if (p > 100) return { cls: 'over', text: `Vượt ${(p - 100).toFixed(0)}%`, color: cssVar('--expense') };
     if (p >= 80) return { cls: 'warn', text: `${p.toFixed(0)}% – Sắp hết`, color: cssVar('--warn') };
@@ -347,9 +378,13 @@
     const type = $('#fType').value, sel = $('#fCat'), prev = sel.value;
     const group = (label, cats) => `<optgroup label="${label}">${cats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}</optgroup>`;
     sel.innerHTML = '<option value="all">Tất cả danh mục</option>' +
-      (type !== 'expense' ? group('Thu nhập', INCOME_CATS) : '') +
-      (type !== 'income' ? group('Chi tiêu', EXPENSE_CATS) : '');
+      Object.entries(CATS_BY_TYPE).filter(([k]) => type === 'all' || type === k).map(([k, cats]) => group(TYPE_NAMES[k], cats)).join('');
     sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
+  }
+  function totals(list) {
+    const r = { income: 0, expense: 0, invest: 0 };
+    list.forEach(t => { r[t.type] += isWithdraw(t) ? -t.amount : t.amount; });
+    return r;
   }
   function renderTransactions() {
     const q = $('#fSearch').value.trim().toLowerCase();
@@ -360,11 +395,13 @@
       (!from || t.date >= from) && (!to || t.date <= to) &&
       (!q || (t.note || '').toLowerCase().includes(q) || catOf(t.cat).name.toLowerCase().includes(q) || String(t.amount).includes(q))
     ));
-    let inc = 0, exp = 0;
-    list.forEach(t => t.type === 'income' ? inc += t.amount : exp += t.amount);
-    $('#txSummary').innerHTML = `<span class="pill">${list.length} giao dịch</span>
-      <span class="pill income">Thu: ${money(inc)}</span><span class="pill expense">Chi: ${money(exp)}</span>
-      <span class="pill">Chênh lệch: <b>${money(inc - exp)}</b></span>`;
+    const tot = totals(list);
+    const show = k => type === 'all' || type === k;
+    $('#txSummary').innerHTML = `<span class="pill">${list.length} giao dịch</span>` +
+      (show('income') ? `<span class="pill income">Thu: ${money(tot.income)}</span>` : '') +
+      (show('expense') ? `<span class="pill expense">Chi: ${money(tot.expense)}</span>` : '') +
+      (show('invest') ? `<span class="pill invest">Đầu tư: ${money(tot.invest)}</span>` : '') +
+      (type === 'all' ? `<span class="pill">Tiền mặt còn lại: <b>${money(tot.income - tot.expense - tot.invest)}</b></span>` : '');
 
     if (!list.length) {
       $('#txList').innerHTML = `<div class="card">${emptyState(state.transactions.length ? 'Không tìm thấy giao dịch phù hợp với bộ lọc.' : 'Chưa có giao dịch nào.', !state.transactions.length)}</div>`;
@@ -377,9 +414,9 @@
     for (const [date, items] of groups) {
       const d = parseKey(date);
       const name = date === tk ? 'Hôm nay' : date === yk ? 'Hôm qua' : DOW[d.getDay()];
-      let gi = 0, ge = 0; items.forEach(t => t.type === 'income' ? gi += t.amount : ge += t.amount);
+      const g = totals(items);
       html += `<div class="day-group"><div class="day-head"><span>${name}, ${dmy(d)}</span><span class="vals">
-        ${gi ? `<span class="income-text">+${money(gi)}</span>` : ''}${ge ? `<span class="expense-text">−${money(ge)}</span>` : ''}</span></div>
+        ${g.income ? `<span class="income-text">+${money(g.income)}</span>` : ''}${g.expense ? `<span class="expense-text">−${money(g.expense)}</span>` : ''}${g.invest ? `<span class="invest-text">${g.invest > 0 ? `Đầu tư ${money(g.invest)}` : `Rút vốn +${money(-g.invest)}`}</span>` : ''}</span></div>
         <div class="card flush"><div class="tx-list">${items.map(txRow).join('')}</div></div></div>`;
     }
     $('#txList').innerHTML = html;
@@ -402,18 +439,21 @@
     $('#rpStats').innerHTML =
       statCard('⬆️', 'ico-income', 'Tổng thu', money(cur.income), deltaInfo(cur.income, prev.income, true, pn)) +
       statCard('⬇️', 'ico-expense', 'Tổng chi', money(cur.expense), deltaInfo(cur.expense, prev.expense, false, pn)) +
-      statCard('💵', 'ico-primary', 'Chênh lệch (Thu − Chi)', money(cur.net), { cls: cur.net >= 0 ? 'up-good' : 'up-bad', text: cur.income ? `Tiết kiệm ${rate.toFixed(1)}% thu nhập` : `${cur.count} giao dịch` }) +
+      statCard('📊', 'ico-invest', 'Đầu tư (rót − rút)', money(cur.invest), deltaInfo(cur.invest, prev.invest, true, pn)) +
+      statCard('💵', 'ico-primary', 'Tiền mặt còn lại', money(cur.cash), { cls: cur.cash >= 0 ? 'up-good' : 'up-bad', text: cur.income ? `Tiết kiệm & đầu tư ${rate.toFixed(1)}% thu nhập` : `${cur.count} giao dịch` }) +
       statCard('📅', 'ico-warn', days > 1 ? 'Chi trung bình / ngày' : 'Số giao dịch', days > 1 ? money(cur.expense / days) : String(cur.count), days > 1 ? { cls: 'muted', text: `${cur.count} giao dịch trong kỳ` } : null);
 
     $('#rpTrendTitle').textContent = info.trendTitle;
-    const inc = [], exp = [];
-    info.buckets.forEach(b => { const r = sumRange(keyOf(b.start), keyOf(b.end)); inc.push(r.income); exp.push(r.expense); });
-    drawChart('rpTrendChart', barConfig(info.buckets.map(b => b.label), inc, exp));
+    const inc = [], exp = [], inv = [];
+    info.buckets.forEach(b => { const r = sumRange(keyOf(b.start), keyOf(b.end)); inc.push(r.income); exp.push(r.expense); inv.push(r.invest); });
+    drawChart('rpTrendChart', barConfig(info.buckets.map(b => b.label), inc, exp, inv));
 
     drawPie('rpExpPie', 'rpExpEmpty', cur.byCat, EXPENSE_CATS);
     drawPie('rpIncPie', 'rpIncEmpty', cur.byCat, INCOME_CATS);
     $('#rpExpTable').innerHTML = catTable(cur.byCat, EXPENSE_CATS, cur.expense);
     $('#rpIncTable').innerHTML = catTable(cur.byCat, INCOME_CATS, cur.income);
+    drawPie('rpInvPie', 'rpInvEmpty', cur.byCat, INVEST_CATS);
+    $('#rpInvTable').innerHTML = catTable(cur.byCat, INVEST_CATS, INVEST_CATS.reduce((a, c) => a + Math.max(cur.byCat[c.id] || 0, 0), 0));
   }
 
   // ---------------- NGÂN SÁCH ----------------
@@ -454,6 +494,7 @@
     const chips = cats => cats.map(c => `<span class="chip">${c.icon} ${esc(c.name)}</span>`).join('');
     $('#incomeCatList').innerHTML = chips(INCOME_CATS);
     $('#expenseCatList').innerHTML = chips(EXPENSE_CATS);
+    $('#investCatList').innerHTML = chips(INVEST_CATS);
   }
   function download(name, content, mime) {
     const blob = new Blob([content], { type: mime });
@@ -465,7 +506,7 @@
   function exportCsv() {
     const q = v => `"${String(v).replace(/"/g, '""')}"`;
     const rows = [['Ngày', 'Loại', 'Danh mục', 'Số tiền', 'Ghi chú']];
-    sortTx(state.transactions).forEach(t => rows.push([dmy(parseKey(t.date)), t.type === 'income' ? 'Thu nhập' : 'Chi tiêu', catOf(t.cat).name, t.amount, t.note || '']));
+    sortTx(state.transactions).forEach(t => rows.push([dmy(parseKey(t.date)), TYPE_NAMES[t.type] + (t.type === 'invest' ? (t.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : ''), catOf(t.cat).name, isWithdraw(t) || t.type === 'income' ? t.amount : -t.amount, t.note || '']));
     download(`so-thu-chi-${keyOf(today())}.csv`, '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
   }
 
@@ -473,19 +514,27 @@
   function sampleData() {
     const out = [], t = today();
     const rnd = (a, b) => Math.round((a + Math.random() * (b - a)) / 1000) * 1000;
-    const push = (type, cat, amount, d, note) => out.push({ id: uid(), type, cat, amount, date: keyOf(d), note, createdAt: Date.now() });
+    const push = (type, cat, amount, d, note, dir) => out.push({ id: uid(), type, cat, amount, date: keyOf(d), note, createdAt: Date.now(), ...(type === 'invest' ? { dir: dir || 'in' } : {}) });
     const notesFood = ['Ăn sáng', 'Cơm trưa văn phòng', 'Cà phê', 'Đi chợ', 'Ăn tối cùng gia đình', 'Trà sữa'];
     for (let mo = 11; mo >= 0; mo--) {
       const base = new Date(t.getFullYear(), t.getMonth() - mo, 1);
       const last = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
       const maxDay = mo === 0 ? t.getDate() : last;
       const d = n => new Date(base.getFullYear(), base.getMonth(), Math.min(n, maxDay));
-      if (maxDay >= 5) push('income', 'luong', rnd(18e6, 20e6), d(5), 'Lương tháng ' + (base.getMonth() + 1));
+      if (maxDay >= 5) push('income', 'luong', rnd(25e6, 28e6), d(5), 'Lương tháng ' + (base.getMonth() + 1));
       if (Math.random() < .5) push('income', 'freelance', rnd(2e6, 6e6), d(15 + Math.floor(Math.random() * 10)), 'Dự án làm thêm');
       if (Math.random() < .35) push('income', 'dautu', rnd(5e5, 3e6), d(20), 'Cổ tức');
       push('income', 'laitietkiem', rnd(3e5, 6e5), d(1), 'Lãi sổ tiết kiệm');
       if (base.getMonth() === 0 || base.getMonth() === 1) push('income', 'quatang', rnd(2e6, 5e6), d(10), 'Lì xì Tết');
       if (base.getMonth() === 11 || base.getMonth() === 5) push('income', 'thuong', rnd(5e6, 15e6), d(25), 'Thưởng');
+      if (maxDay >= 6) {
+        push('invest', 'chungkhoan', rnd(2e6, 4e6), d(6), 'Mua cổ phiếu định kỳ');
+        push('invest', 'quy', 1e6, d(6), 'Tích sản chứng chỉ quỹ');
+      }
+      if (base.getMonth() % 3 === 0) push('invest', 'guitietkiem', 5e6, d(7), 'Mở sổ tiết kiệm 6 tháng');
+      if (Math.random() < .3) push('invest', 'vang', rnd(3e6, 8e6), d(18), 'Mua vàng nhẫn');
+      if (Math.random() < .15) push('invest', 'chungkhoan', rnd(2e6, 5e6), d(22), 'Chốt lời một phần', 'out');
+      if (mo === 8) push('invest', 'batdongsan', 30e6, d(3), 'Góp vốn mua đất');
       push('expense', 'nhao', 5e6, d(2), 'Tiền thuê nhà');
       push('expense', 'diennuoc', rnd(6e5, 1.1e6), d(8), 'Điện nước tháng');
       push('expense', 'vienthong', rnd(2.5e5, 3.5e5), d(10), 'Cước Internet + điện thoại');
@@ -508,12 +557,13 @@
   }
 
   // ---------------- MODAL GIAO DỊCH ----------------
-  let editingId = null, mType = 'expense', mCat = null;
+  let editingId = null, mType = 'expense', mCat = null, mDir = 'in';
   const QUICK = [20000, 50000, 100000, 200000, 500000, 1000000, 5000000];
   function openModal(tx) {
     editingId = tx ? tx.id : null;
     mType = tx ? tx.type : 'expense';
     mCat = tx ? tx.cat : null;
+    mDir = tx && tx.dir === 'out' ? 'out' : 'in';
     $('#txModalTitle').textContent = tx ? 'Sửa giao dịch' : 'Thêm giao dịch';
     $('#txAmount').value = tx ? nf.format(tx.amount) : '';
     $('#txDate').value = tx ? tx.date : keyOf(today());
@@ -526,7 +576,9 @@
   function closeModal() { $('#txModal').classList.add('hidden'); }
   function renderModalType() {
     $$('#typeToggle button').forEach(b => b.classList.toggle('active', b.dataset.type === mType));
-    const cats = mType === 'income' ? INCOME_CATS : EXPENSE_CATS;
+    $('#dirToggle').classList.toggle('hidden', mType !== 'invest');
+    $$('#dirToggle button').forEach(b => b.classList.toggle('active', b.dataset.dir === mDir));
+    const cats = CATS_BY_TYPE[mType];
     if (!cats.some(c => c.id === mCat)) mCat = cats[0].id;
     $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
   }
@@ -537,13 +589,15 @@
     if (amount <= 0) { toast('Vui lòng nhập số tiền lớn hơn 0'); $('#txAmount').focus(); return; }
     if (!date) { toast('Vui lòng chọn ngày'); return; }
     const data = { type: mType, cat: mCat, amount, date, note: $('#txNote').value.trim() };
+    if (mType === 'invest') data.dir = mDir;
     if (editingId) {
       const t = state.transactions.find(x => x.id === editingId);
+      delete t.dir;
       Object.assign(t, data);
       toast('✅ Đã cập nhật giao dịch');
     } else {
       state.transactions.push({ id: uid(), createdAt: Date.now(), ...data });
-      toast(`✅ Đã thêm ${mType === 'income' ? 'khoản thu' : 'khoản chi'} ${money(amount)}`);
+      toast(`✅ Đã thêm ${{ income: 'khoản thu', expense: 'khoản chi', invest: mDir === 'out' ? 'khoản rút vốn' : 'khoản đầu tư' }[mType]} ${money(amount)}`);
     }
     save(); closeModal(); renderCurrent();
     if (mType === 'expense') checkBudgetAfterSave(data);
@@ -595,6 +649,7 @@
       }
     });
     $('#typeToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mType = b.dataset.type; renderModalType(); } });
+    $('#dirToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mDir = b.dataset.dir; renderModalType(); } });
     $('#catGrid').addEventListener('click', e => { const b = e.target.closest('.cat-btn'); if (b) { mCat = b.dataset.cat; renderModalType(); } });
     $('#txAmount').addEventListener('input', e => { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; });
     $('#quickAmounts').innerHTML = QUICK.map(v => `<button type="button" data-q="${v}">${shortMoney(v)}</button>`).join('');
@@ -646,8 +701,8 @@
         try {
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
-          const valid = d.transactions.filter(t => t && (t.type === 'income' || t.type === 'expense') && CAT_MAP[t.cat] && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
-            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now() }));
+          const valid = d.transactions.filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
+            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}) }));
           if (!confirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`)) return;
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
