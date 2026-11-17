@@ -51,9 +51,14 @@
     { id: 'batdongsan',  name: 'Bất động sản',           icon: '🏘️', color: '#7c3aed' },
     { id: 'guitietkiem', name: 'Gửi tiết kiệm',          icon: '🏛️', color: '#059669' },
   ];
-  const CATS_BY_TYPE = { income: INCOME_CATS, expense: EXPENSE_CATS, invest: INVEST_CATS };
+  // Tiền có sẵn từ trước (tiền mặt, tài khoản, vốn đầu tư cũ): cộng vào tiền mặt / tài sản nhưng KHÔNG tính là thu nhập.
+  // Nằm ngoài 10 khoản thu nhập, chỉ hiện thêm ở cuối lưới chọn khi nhập khoản thu.
+  const CAPITAL_CAT = { id: 'vonsan', name: 'Vốn có sẵn / Số dư đầu kỳ', icon: '🏧', color: '#64748b', capital: true,
+    desc: 'Tiền có sẵn từ trước khi dùng app (tiền mặt, tài khoản, vốn đầu tư cũ). Cộng vào tiền mặt, không tính là thu nhập.' };
+  const CATS_BY_TYPE = { income: [...INCOME_CATS, CAPITAL_CAT], expense: EXPENSE_CATS, invest: INVEST_CATS };
   const TYPE_NAMES = { income: 'Thu nhập', expense: 'Chi tiêu', invest: 'Đầu tư' };
-  const CAT_MAP = Object.fromEntries([...INCOME_CATS, ...EXPENSE_CATS, ...INVEST_CATS].map(c => [c.id, c]));
+  const CAT_MAP = Object.fromEntries([...INCOME_CATS, CAPITAL_CAT, ...EXPENSE_CATS, ...INVEST_CATS].map(c => [c.id, c]));
+  const isCapital = t => t.type === 'income' && !!(CAT_MAP[t.cat] && CAT_MAP[t.cat].capital);
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
   // Khoản đã bỏ khỏi danh sách: chuyển dữ liệu cũ sang khoản gần nhất
   const LEGACY_CAT = { diennuoc: 'nhao' };
@@ -181,19 +186,21 @@
   const parseAmount = s => Number(String(s).replace(/[^\d]/g, '')) || 0;
 
   function sumRange(startKey, endKey) {
-    let income = 0, expense = 0, invest = 0, count = 0;
+    let income = 0, expense = 0, invest = 0, capital = 0, count = 0;
     const byCat = {};
     for (const t of state.transactions) {
       if (t.date < startKey || t.date > endKey) continue;
       count++;
       const amt = isWithdraw(t) ? -t.amount : t.amount;
-      if (t.type === 'income') income += amt;
+      if (isCapital(t)) capital += amt;
+      else if (t.type === 'income') income += amt;
       else if (t.type === 'expense') expense += amt;
       else invest += amt;
       byCat[t.cat] = (byCat[t.cat] || 0) + amt;
     }
-    // net: tích lũy (thu − chi); cash: tiền mặt còn lại sau khi đầu tư
-    return { income, expense, invest, net: income - expense, cash: income - expense - invest, count, byCat };
+    // income: thu nhập thật (không gồm vốn có sẵn); saving: thu − chi (tính tỷ lệ tiết kiệm)
+    // net: tài sản tích lũy (thu + vốn có sẵn − chi); cash: tiền mặt còn lại sau khi đầu tư
+    return { income, expense, invest, capital, saving: income - expense, net: income + capital - expense, cash: income + capital - expense - invest, count, byCat };
   }
 
   // ---------------- KỲ THỐNG KÊ ----------------
@@ -392,12 +399,12 @@
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
     $('#dbAvgLabel').textContent = `Chi trung bình/ngày (${t.getDate()} ngày đã qua của tháng)`;
 
-    const rate = cur.income ? (cur.net / cur.income * 100) : 0;
+    const rate = cur.income ? (cur.saving / cur.income * 100) : 0;
     $('#dbStats').innerHTML =
       statCard('⬆️', 'ico-income', `Thu nhập tháng ${t.getMonth() + 1}`, money(cur.income), deltaInfo(cur.income, prev.income, true, 'tháng trước')) +
       statCard('⬇️', 'ico-expense', `Chi tiêu tháng ${t.getMonth() + 1}`, money(cur.expense), deltaInfo(cur.expense, prev.expense, false, 'tháng trước')) +
       statCard('📊', 'ico-invest', `Đầu tư tháng ${t.getMonth() + 1}`, money(cur.invest), deltaInfo(cur.invest, prev.invest, true, 'tháng trước')) +
-      statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: 'Thu − Chi − Đầu tư' }) +
+      statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: cur.capital ? `Thu + vốn có sẵn ${money(cur.capital)} − Chi − Đầu tư` : 'Thu − Chi − Đầu tư' }) +
       statCard('🐷', 'ico-warn', 'Tỷ lệ tiết kiệm & đầu tư', cur.income ? rate.toFixed(1) + '%' : '—', { cls: 'muted', text: '(Thu − Chi) / Thu' });
 
     // Xu hướng 6 tháng
@@ -464,8 +471,8 @@
     sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
   }
   function totals(list) {
-    const r = { income: 0, expense: 0, invest: 0 };
-    list.forEach(t => { r[t.type] += isWithdraw(t) ? -t.amount : t.amount; });
+    const r = { income: 0, expense: 0, invest: 0, capital: 0 };
+    list.forEach(t => { r[isCapital(t) ? 'capital' : t.type] += isWithdraw(t) ? -t.amount : t.amount; });
     return r;
   }
   function renderTransactions() {
@@ -481,9 +488,10 @@
     const show = k => type === 'all' || type === k;
     $('#txSummary').innerHTML = `<span class="pill">${list.length} giao dịch</span>` +
       (show('income') ? `<span class="pill income">Thu: ${money(tot.income)}</span>` : '') +
+      (show('income') && tot.capital ? `<span class="pill">Vốn có sẵn: ${money(tot.capital)}</span>` : '') +
       (show('expense') ? `<span class="pill expense">Chi: ${money(tot.expense)}</span>` : '') +
       (show('invest') ? `<span class="pill invest">Đầu tư: ${money(tot.invest)}</span>` : '') +
-      (type === 'all' ? `<span class="pill">Tiền mặt còn lại: <b>${money(tot.income - tot.expense - tot.invest)}</b></span>` : '');
+      (type === 'all' ? `<span class="pill">Tiền mặt còn lại: <b>${money(tot.income + tot.capital - tot.expense - tot.invest)}</b></span>` : '');
 
     if (!list.length) {
       $('#txList').innerHTML = `<div class="card">${emptyState(state.transactions.length ? 'Không tìm thấy giao dịch phù hợp với bộ lọc.' : 'Chưa có giao dịch nào.', !state.transactions.length)}</div>`;
@@ -498,7 +506,7 @@
       const name = date === tk ? 'Hôm nay' : date === yk ? 'Hôm qua' : DOW[d.getDay()];
       const g = totals(items);
       html += `<div class="day-group"><div class="day-head"><span>${name}, ${dmy(d)}</span><span class="vals">
-        ${g.income ? `<span class="income-text">+${money(g.income)}</span>` : ''}${g.expense ? `<span class="expense-text">−${money(g.expense)}</span>` : ''}${g.invest ? `<span class="invest-text">${g.invest > 0 ? `Đầu tư ${money(g.invest)}` : `Rút vốn +${money(-g.invest)}`}</span>` : ''}</span></div>
+        ${g.income + g.capital ? `<span class="income-text">+${money(g.income + g.capital)}</span>` : ''}${g.expense ? `<span class="expense-text">−${money(g.expense)}</span>` : ''}${g.invest ? `<span class="invest-text">${g.invest > 0 ? `Đầu tư ${money(g.invest)}` : `Rút vốn +${money(-g.invest)}`}</span>` : ''}</span></div>
         <div class="card flush"><div class="tx-list">${items.map(txRow).join('')}</div></div></div>`;
     }
     $('#txList').innerHTML = html;
@@ -520,7 +528,7 @@
     // Chia cho số ngày ĐÃ QUA trong kỳ (giống Tổng quan): kỳ đang diễn ra chưa hết ngày thì không chia cho cả kỳ
     const tdy = today(), effEnd = info.end > tdy ? tdy : info.end;
     const elapsed = effEnd < info.start ? 0 : Math.round((effEnd - info.start) / 864e5) + 1;
-    const rate = cur.income ? cur.net / cur.income * 100 : 0;
+    const rate = cur.income ? cur.saving / cur.income * 100 : 0;
     $('#rpStats').innerHTML =
       statCard('⬆️', 'ico-income', 'Tổng thu', money(cur.income), deltaInfo(cur.income, prev.income, true, pn)) +
       statCard('⬇️', 'ico-expense', 'Tổng chi', money(cur.expense), deltaInfo(cur.expense, prev.expense, false, pn)) +
@@ -913,37 +921,38 @@
         [],
         ['TRONG KỲ', 'Số tiền (₫)'],
         ['Tổng thu nhập', xm(r.income)],
+        ['Vốn có sẵn đưa vào (không tính là thu nhập)', xm(r.capital)],
         ['Tổng chi tiêu', xm(r.expense)],
         ['Đầu tư (rót vốn − rút vốn)', xm(r.invest)],
-        ['Chênh lệch thu − chi', { t: 'n', v: r.net, f: 'B6-B7', z: MONEY_FMT }],
-        ['Tiền mặt còn lại (thu − chi − đầu tư)', { t: 'n', v: r.cash, f: 'B6-B7-B8', z: MONEY_FMT }],
-        ['Tỷ lệ tiết kiệm & đầu tư', { t: 'n', v: r.income ? r.net / r.income : 0, f: 'IF(B6=0,0,B9/B6)', z: '0.0%' }],
+        ['Chênh lệch thu − chi', { t: 'n', v: r.saving, f: 'B6-B8', z: MONEY_FMT }],
+        ['Tiền mặt còn lại (thu + vốn có sẵn − chi − đầu tư)', { t: 'n', v: r.cash, f: 'B6+B7-B8-B9', z: MONEY_FMT }],
+        ['Tỷ lệ tiết kiệm & đầu tư', { t: 'n', v: r.income ? r.saving / r.income : 0, f: 'IF(B6=0,0,B10/B6)', z: '0.0%' }],
         ['Số giao dịch', r.count],
         [],
         [`LŨY KẾ ĐẾN ${dmy(parseKey(toKey))}`, 'Số tiền (₫)'],
-        ['Tổng tài sản tích lũy (thu − chi)', xm(acc.net)],
+        ['Tổng tài sản tích lũy (thu + vốn có sẵn − chi)', xm(acc.net)],
         ['Tiền mặt', xm(acc.cash)],
         ['Đang đầu tư', xm(acc.invest)],
       ], [40, 22]));
     }
 
     if (sheetIds.includes('tx')) {
-      const rows = [['Ngày', 'Loại', 'Hạng mục', 'Thu nhập (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫) (+rót / −rút)', 'Ghi chú']];
+      const rows = [['Ngày', 'Loại', 'Hạng mục', 'Tiền vào (₫) (thu nhập, vốn có sẵn)', 'Chi tiêu (₫)', 'Đầu tư (₫) (+rót / −rút)', 'Ghi chú']];
       for (const x of txs) {
-        const c = catOf(x.cat), type = TYPE_NAMES[x.type] + (x.type === 'invest' ? (x.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : '');
+        const c = catOf(x.cat), type = isCapital(x) ? 'Vốn có sẵn' : TYPE_NAMES[x.type] + (x.type === 'invest' ? (x.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : '');
         rows.push([xdate(x.date), type, c.name, x.type === 'income' ? xm(x.amount) : '', x.type === 'expense' ? xm(x.amount) : '',
           x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.note || '']);
       }
       const last = rows.length;
-      rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), '']);
+      rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income + r.capital), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), '']);
       add('tx', xSheet(rows, [12, 20, 34, 16, 16, 22, 44], [0, last - 1]));
     }
 
     if (sheetIds.includes('cat')) {
       const rows = [['Loại', 'Hạng mục', 'Số tiền (₫)', 'Tỷ trọng', 'Số giao dịch', 'Ghi chú hạng mục']];
       const counts = {}; txs.forEach(x => { counts[x.cat] = (counts[x.cat] || 0) + 1; });
-      for (const [type, cats] of Object.entries(CATS_BY_TYPE)) {
-        const total = r[type];
+      for (const [type, allCats] of Object.entries(CATS_BY_TYPE)) {
+        const cats = allCats.filter(c => !c.capital), total = r[type];
         const start = rows.length + 1;
         cats.map(c => ({ c, v: r.byCat[c.id] || 0 })).sort((a, b) => b.v - a.v).forEach(({ c, v }) => {
           rows.push([TYPE_NAMES[type], c.name, xm(v), xpct(total ? v / total : 0), counts[c.id] || 0, catNote(c)]);
@@ -951,21 +960,22 @@
         rows.push([`Tổng ${TYPE_NAMES[type].toLowerCase()}`, '', xsum('C', start, rows.length, total), '', '', '']);
         rows.push([]);
       }
+      if (r.capital) rows.push(['Vốn có sẵn', CAPITAL_CAT.name, xm(r.capital), '', counts[CAPITAL_CAT.id] || 0, 'Không tính là thu nhập']);
       add('cat', xSheet(rows, [12, 36, 18, 10, 13, 44]));
     }
 
     if (sheetIds.includes('month')) {
-      const rows = [['Tháng', 'Thu nhập (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫)', 'Chênh lệch thu − chi (₫)', 'Tiền mặt còn lại (₫)', 'Tỷ lệ tiết kiệm']];
+      const rows = [['Tháng', 'Thu nhập (₫)', 'Vốn có sẵn (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫)', 'Chênh lệch thu − chi (₫)', 'Tiền mặt còn lại (₫)', 'Tỷ lệ tiết kiệm']];
       months.forEach((mk, i) => {
         const [a, b] = monthRange(mk), x = sumRange(a < fromKey ? fromKey : a, b > toKey ? toKey : b), row = i + 2;
-        rows.push([mLabel(mk), xm(x.income), xm(x.expense), xm(x.invest),
-          { t: 'n', v: x.net, f: `B${row}-C${row}`, z: MONEY_FMT }, { t: 'n', v: x.cash, f: `B${row}-C${row}-D${row}`, z: MONEY_FMT },
-          { t: 'n', v: x.income ? x.net / x.income : 0, f: `IF(B${row}=0,0,E${row}/B${row})`, z: '0.0%' }]);
+        rows.push([mLabel(mk), xm(x.income), xm(x.capital), xm(x.expense), xm(x.invest),
+          { t: 'n', v: x.saving, f: `B${row}-D${row}`, z: MONEY_FMT }, { t: 'n', v: x.cash, f: `B${row}+C${row}-D${row}-E${row}`, z: MONEY_FMT },
+          { t: 'n', v: x.income ? x.saving / x.income : 0, f: `IF(B${row}=0,0,F${row}/B${row})`, z: '0.0%' }]);
       });
       const last = rows.length, n = last + 1;
-      rows.push(['TỔNG CỘNG', xsum('B', 2, last, r.income), xsum('C', 2, last, r.expense), xsum('D', 2, last, r.invest),
-        xsum('E', 2, last, r.net), xsum('F', 2, last, r.cash), { t: 'n', v: r.income ? r.net / r.income : 0, f: `IF(B${n}=0,0,E${n}/B${n})`, z: '0.0%' }]);
-      add('month', xSheet(rows, [16, 16, 16, 16, 22, 20, 15]));
+      rows.push(['TỔNG CỘNG', xsum('B', 2, last, r.income), xsum('C', 2, last, r.capital), xsum('D', 2, last, r.expense), xsum('E', 2, last, r.invest),
+        xsum('F', 2, last, r.saving), xsum('G', 2, last, r.cash), { t: 'n', v: r.income ? r.saving / r.income : 0, f: `IF(B${n}=0,0,F${n}/B${n})`, z: '0.0%' }]);
+      add('month', xSheet(rows, [16, 16, 16, 16, 16, 22, 20, 15]));
     }
 
     if (sheetIds.includes('budget')) {
