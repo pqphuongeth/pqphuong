@@ -577,6 +577,8 @@
       { k: 'hh1',   name: 'Hoa hồng khác 1', cat: 'hoahong', editable: true },
       { k: 'hh2',   name: 'Hoa hồng khác 2', cat: 'hoahong', editable: true },
       { k: 'khac',  name: 'Thu nhập khác', cat: 'thukhac' },
+      { k: 've1',   name: 'Khoản về khác 1', cat: 'thukhac', editable: true },
+      { k: 've2',   name: 'Khoản về khác 2', cat: 'thukhac', editable: true },
     ],
     out: [
       { k: 'nganhang', name: 'Trả ngân hàng', cat: 'trano' },
