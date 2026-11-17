@@ -36,6 +36,7 @@
     { id: 'giaoduc',   name: 'Giáo dục / Học tập',                  icon: '📚', color: '#6366f1' },
     { id: 'giaitri',   name: 'Giải trí / Du lịch',                  icon: '🎬', color: '#a855f7' },
     { id: 'lamdep',    name: 'Thể thao',                            icon: '🏸', color: '#22c55e' },
+    { id: 'vesinh',    name: 'Vệ sinh cá nhân',                     icon: '💇', color: '#06b6d4', desc: 'Cắt tóc, gội đầu' },
     { id: 'phanmem',   name: 'Phần mềm / App',                      icon: '💻', color: '#8b5cf6' },
     { id: 'baohiem',   name: 'Bảo hiểm',                            icon: '🛡️', color: '#64748b' },
     { id: 'trano',     name: 'Trả nợ (gốc / lãi)',                  icon: '💳', color: '#78716c' },
@@ -800,6 +801,7 @@
         if (Math.random() < .04) push('expense', 'yte', rnd(1e5, 5e5), d(day), 'Thuốc');
         if (Math.random() < .04) push('expense', 'hieuhi', rnd(3e5, 1e6), d(day), 'Quà biếu khách hàng');
         if (Math.random() < .05) push('expense', 'lamdep', rnd(1e5, 4e5), d(day), 'Cầu lông / Gym');
+        if (Math.random() < .07) push('expense', 'vesinh', rnd(5e4, 2e5), d(day), 'Cắt tóc / gội đầu');
         if (Math.random() < .03) push('expense', 'giaoduc', rnd(2e5, 1.5e6), d(day), 'Sách / khóa học');
         if (Math.random() < .04) push('expense', 'concai', rnd(1e5, 6e5), d(day), 'Chi tiêu gia đình');
         if (Math.random() < .02) push('expense', 'chikhac', rnd(5e4, 3e5), d(day), 'Linh tinh');
