@@ -30,6 +30,8 @@
     { id: 'tiepkhach', name: 'Tiếp khách',                          icon: '🥂', color: '#ea580c' },
     { id: 'hieuhi',    name: 'Chi phí quà tặng, biếu khách hàng',   icon: '🎁', color: '#d946ef' },
     { id: 'muasam',    name: 'Mua sắm cá nhân',                     icon: '🛍️', color: '#ec4899' },
+    { id: 'muachocon', name: 'Mua sắm cho con',                     icon: '🧸', color: '#fb7185', desc: 'Đồ chơi, quần áo, đồ dùng học tập…' },
+    { id: 'tmdt',      name: 'Mua hàng TMĐT cá nhân',               icon: '📦', color: '#f59e0b', desc: 'Mua hàng thương mại điện tử cá nhân (Shopee, Lazada, Tiki, TikTok Shop…)' },
     { id: 'yte',       name: 'Sức khỏe / Y tế',                     icon: '💊', color: '#14b8a6' },
     { id: 'giaoduc',   name: 'Giáo dục / Học tập',                  icon: '📚', color: '#6366f1' },
     { id: 'giaitri',   name: 'Giải trí / Du lịch',                  icon: '🎬', color: '#a855f7' },
@@ -39,7 +41,7 @@
     { id: 'trano',     name: 'Trả nợ (gốc / lãi)',                  icon: '💳', color: '#78716c' },
     { id: 'trabds',    name: 'Trả tiền mua BĐS',                    icon: '🏗️', color: '#b45309' },
     { id: 'thuetncn',  name: 'Thuế TNCN',                           icon: '🧾', color: '#eab308' },
-    { id: 'chikhac',   name: 'Chi phí khác',                        icon: '📦', color: '#94a3b8' },
+    { id: 'chikhac',   name: 'Chi phí khác',                        icon: '🗂️', color: '#94a3b8' },
   ];
   const INVEST_CATS = [
     { id: 'chungkhoan',  name: 'Chứng khoán / Cổ phiếu', icon: '📊', color: '#2563eb' },
@@ -565,6 +567,9 @@
     $('#incomeCatList').innerHTML = chips(INCOME_CATS);
     $('#expenseCatList').innerHTML = chips(EXPENSE_CATS);
     $('#investCatList').innerHTML = chips(INVEST_CATS);
+    $('#incomeCatTitle').textContent = `${INCOME_CATS.length} khoản thu nhập`;
+    $('#expenseCatTitle').textContent = `${EXPENSE_CATS.length} khoản chi tiêu`;
+    $('#investCatTitle').textContent = `${INVEST_CATS.length} khoản đầu tư`;
   }
   async function download(name, content, mime) {
     const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null;
@@ -625,6 +630,8 @@
         if (Math.random() < .85) push('expense', 'anuong', rnd(4e4, 2.5e5), d(day), notesFood[Math.floor(Math.random() * notesFood.length)]);
         if (Math.random() < .12) push('expense', 'dilai', rnd(3e5, 8e5), d(day), 'Đổ xăng ô tô');
         if (Math.random() < .08) push('expense', 'muasam', rnd(2e5, 1.5e6), d(day), 'Mua sắm cá nhân');
+        if (Math.random() < .05) push('expense', 'muachocon', rnd(1.5e5, 8e5), d(day), 'Quần áo / đồ chơi cho con');
+        if (Math.random() < .07) push('expense', 'tmdt', rnd(1e5, 7e5), d(day), 'Đơn hàng Shopee');
         if (Math.random() < .06) push('expense', 'tiepkhach', rnd(5e5, 2e6), d(day), 'Tiếp khách hàng');
         if (Math.random() < .06) push('expense', 'giaitri', rnd(1.5e5, 8e5), d(day), 'Xem phim / đi chơi');
         if (Math.random() < .04) push('expense', 'yte', rnd(1e5, 5e5), d(day), 'Thuốc');

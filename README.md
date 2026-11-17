@@ -20,8 +20,8 @@ Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài 
 ### 10 khoản thu nhập
 Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng từ bán hàng · Được tặng / Lì xì · Thu nhập khác
 
-### 20 khoản chi tiêu
-Nhà ở / Thuê nhà · Gia đình · Bố mẹ · Xăng xe ô tô · Phí xe ô tô · Điện thoại · Ăn uống & cà phê (ăn uống và cà phê hằng ngày) · Tiếp khách · Chi phí quà tặng, biếu khách hàng · Mua sắm cá nhân · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Thể thao · Phần mềm / App · Bảo hiểm · Trả nợ (gốc / lãi) · Trả tiền mua BĐS · Thuế TNCN · Chi phí khác
+### 22 khoản chi tiêu
+Nhà ở / Thuê nhà · Gia đình · Bố mẹ · Xăng xe ô tô · Phí xe ô tô · Điện thoại · Ăn uống & cà phê (ăn uống và cà phê hằng ngày) · Tiếp khách · Chi phí quà tặng, biếu khách hàng · Mua sắm cá nhân · Mua sắm cho con (đồ chơi, quần áo, đồ dùng học tập…) · Mua hàng TMĐT cá nhân · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Thể thao · Phần mềm / App · Bảo hiểm · Trả nợ (gốc / lãi) · Trả tiền mua BĐS · Thuế TNCN · Chi phí khác
 
 ### 5 khoản đầu tư
 Chứng khoán / Cổ phiếu · Cryptos · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
