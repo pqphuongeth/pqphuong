@@ -65,7 +65,7 @@
 
         <div class="card">
           <div class="card-head">
-            <h3>Dòng tiền dự kiến về</h3>
+            <h3>Dòng tiền tới hạn nhận</h3>
             <button class="link-btn" data-goto="forecast">Chi tiết →</button>
           </div>
           <div id="dbForecast"></div>
@@ -193,7 +193,7 @@
         <div class="card report-toolbar">
           <div>
             <h3 style="margin:0">Kế hoạch dòng tiền theo tháng</h3>
-            <div class="muted small">Nhập số tiền dự kiến về và phải chi. Khi tiền đã về hoặc đã chi, bấm “Ghi vào sổ” để tạo giao dịch thật.</div>
+            <div class="muted small">Nhập các khoản tới hạn nhận, công nợ phải thu và các khoản phải chi. Khi đã nhận, đã thu hoặc đã chi, bấm “Ghi vào sổ” để tạo giao dịch thật.</div>
           </div>
           <div class="period-nav">
             <button class="icon-btn" id="fcPrev" title="Tháng trước">‹</button>
@@ -203,12 +203,18 @@
           </div>
         </div>
 
-        <div class="stats-grid stats-4" id="fcStats"></div>
+        <div class="stats-grid" id="fcStats"></div>
 
         <div class="card">
-          <div class="card-head"><h3 class="income-text">📥 Dòng tiền dự kiến về</h3></div>
+          <div class="card-head"><h3 class="income-text">📥 Dòng tiền tới hạn nhận</h3></div>
           <div class="fc-list" id="fcList-in"></div>
           <div class="fc-total" id="fcTotal-in"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="invest-text">🧾 Công nợ phải thu</h3></div>
+          <div class="fc-list" id="fcList-debt"></div>
+          <div class="fc-total" id="fcTotal-debt"></div>
         </div>
 
         <div class="card">

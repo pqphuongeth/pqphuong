@@ -580,6 +580,8 @@
       { k: 've1',   name: 'Khoản về khác 1', cat: 'thukhac', editable: true },
       { k: 've2',   name: 'Khoản về khác 2', cat: 'thukhac', editable: true },
     ],
+    // Công nợ phải thu: tên từng khoản đổi được (vd. tên người nợ); thu được thì ghi sổ vào Thu nhập khác
+    debt: [1, 2, 3, 4, 5].map(i => ({ k: 'd' + i, name: 'Khoản ' + i, cat: 'thukhac', editable: true })),
     out: [
       { k: 'nganhang', name: 'Trả ngân hàng', cat: 'trano' },
       { k: 'bds',      name: 'Thanh toán tiền mua BĐS', cat: 'trabds' },
@@ -588,14 +590,20 @@
       { k: 'c3',       name: 'Khoản chi khác 3', cat: 'chikhac', editable: true },
     ],
   };
+  const FC_SIDES = ['in', 'debt', 'out'];
+  const FC_TEXT = {
+    in:   { group: 'Tới hạn nhận',     done: 'Đã nhận', type: 'income',  word: 'khoản thu' },
+    debt: { group: 'Công nợ phải thu', done: 'Đã thu',  type: 'income',  word: 'khoản thu nợ' },
+    out:  { group: 'Dự kiến chi',      done: 'Đã chi',  type: 'expense', word: 'khoản chi' },
+  };
   const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-  const fcHasData = f => f && ['in', 'out'].some(side => Object.values(f[side] || {}).some(l => l && (l.amount || l.note || l.label || l.date)));
-  const fcMonth = key => state.forecast[key] || { in: {}, out: {} };
+  const fcHasData = f => f && FC_SIDES.some(side => Object.values(f[side] || {}).some(l => l && (l.amount || l.note || l.label || l.date)));
+  const fcMonth = key => state.forecast[key] || { in: {}, out: {}, debt: {} };
   const fcLine = (key, side, k) => (fcMonth(key)[side] || {})[k] || {};
   const fcName = (def, line) => line.label || def.name;
   function fcTotals(key) {
-    const r = { in: 0, out: 0, inPending: 0, outPending: 0, inDone: 0, outDone: 0 };
-    for (const side of ['in', 'out']) for (const def of FC_LINES[side]) {
+    const r = { in: 0, out: 0, debt: 0, inPending: 0, outPending: 0, debtPending: 0, inDone: 0, outDone: 0, debtDone: 0 };
+    for (const side of FC_SIDES) for (const def of FC_LINES[side]) {
       const l = fcLine(key, side, def.k), a = Number(l.amount) || 0;
       r[side] += a; if (l.done) r[side + 'Done'] += a; else r[side + 'Pending'] += a;
     }
@@ -617,14 +625,14 @@
 
   function fcRow(key, side, def) {
     const l = fcLine(key, side, def.k), c = catOf(def.cat);
-    const doneText = side === 'in' ? 'Đã về' : 'Đã chi';
+    const doneText = FC_TEXT[side].done;
     return `<div class="fc-row ${l.done ? 'done' : ''}" data-side="${side}" data-k="${def.k}">
       <div class="fc-name">
-        ${def.editable ? `<input class="input fc-label" id="fc-${side}-${def.k}-label" maxlength="60" placeholder="${esc(def.name)}" value="${esc(l.label || '')}" aria-label="Tên khoản" />` : `<b>${esc(def.name)}</b>`}
+        ${def.editable ? `<input class="input fc-label" id="fc-${side}-${def.k}-label" maxlength="60" placeholder="${esc(side === 'debt' ? def.name + ' (tên người / đơn vị nợ)' : def.name)}" value="${esc(l.label || '')}" aria-label="Tên khoản" />` : `<b>${esc(def.name)}</b>`}
         <small class="muted">Ghi sổ vào: ${c.icon} ${esc(c.name)}</small>
       </div>
       <label class="fc-cell"><span>Số tiền (₫)</span><input class="input fc-amount" id="fc-${side}-${def.k}-amount" inputmode="numeric" placeholder="0" value="${l.amount ? nf.format(l.amount) : ''}" ${l.done ? 'disabled' : ''} /></label>
-      <label class="fc-cell"><span>Ngày dự kiến</span><input type="date" class="input fc-date" id="fc-${side}-${def.k}-date" value="${esc(l.date || '')}" ${l.done ? 'disabled' : ''} /></label>
+      <label class="fc-cell"><span>${side === 'debt' ? 'Ngày hẹn trả' : side === 'in' ? 'Ngày tới hạn' : 'Ngày dự kiến'}</span><input type="date" class="input fc-date" id="fc-${side}-${def.k}-date" value="${esc(l.date || '')}" ${l.done ? 'disabled' : ''} /></label>
       <label class="fc-cell fc-note-cell"><span>Ghi chú</span><input class="input fc-note" id="fc-${side}-${def.k}-note" maxlength="120" placeholder="Ghi chú…" value="${esc(l.note || '')}" /></label>
       <button type="button" class="fc-status ${l.done ? 'is-done' : ''} ${side}" data-fc-status>${l.done ? `✅ ${doneText}` : '📥 Ghi vào sổ'}</button>
     </div>`;
@@ -636,33 +644,36 @@
     // Đang gõ trong bảng thì không vẽ lại các dòng để không mất chữ
     const ae = document.activeElement;
     if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row')) return;
-    for (const side of ['in', 'out']) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
+    for (const side of FC_SIDES) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
   }
   function renderFcSummary() {
     const key = fcKeyNow(), t = fcTotals(key);
     const all = sumRange('0000-00-00', '9999-12-31');
-    const net = t.in - t.out;
-    const projected = all.cash + t.inPending - t.outPending;
+    const net = t.in + t.debt - t.out;
+    const projected = all.cash + t.inPending + t.debtPending - t.outPending;
     $('#fcStats').innerHTML =
-      statCard('📥', 'ico-income', 'Dự kiến tiền về', money(t.in), { cls: 'muted', text: `Đã về ${money(t.inDone)} • Còn chờ ${money(t.inPending)}` }) +
+      statCard('📥', 'ico-income', 'Tới hạn nhận', money(t.in), { cls: 'muted', text: `Đã nhận ${money(t.inDone)} • Còn chờ ${money(t.inPending)}` }) +
+      statCard('🧾', 'ico-invest', 'Công nợ phải thu', money(t.debt), { cls: 'muted', text: `Đã thu ${money(t.debtDone)} • Còn phải thu ${money(t.debtPending)}` }) +
       statCard('📤', 'ico-expense', 'Dự kiến chi ra', money(t.out), { cls: 'muted', text: `Đã chi ${money(t.outDone)} • Còn phải chi ${money(t.outPending)}` }) +
-      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: net >= 0 ? 'Dư tiền trong tháng' : 'Thiếu tiền, cần cân đối' }) +
+      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: net >= 0 ? 'Nhận + thu nợ − chi: dư tiền' : 'Nhận + thu nợ − chi: thiếu tiền' }) +
       statCard('💵', 'ico-warn', 'Tiền mặt sau khi thu/chi hết', money(projected), { cls: projected >= 0 ? 'muted' : 'up-bad', text: `Tiền mặt hiện có ${money(all.cash)}` });
     const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
-    $('#fcTotal-in').innerHTML = `<span>Tổng dự kiến về</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
+    $('#fcTotal-in').innerHTML = `<span>Tổng tới hạn nhận</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
+    $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b>${bar(t.debtDone, t.debt, 'invest')}`;
     $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
   function renderDbForecast() {
     const d = new Date(today().getFullYear(), today().getMonth() + 1, 1), key = monthKey(d), t = fcTotals(key);
     const el = $('#dbForecast');
-    if (!t.in && !t.out) {
+    if (!t.in && !t.out && !t.debt) {
       el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập dòng tiền dự kiến cho tháng ${d.getMonth() + 1}/${d.getFullYear()}.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
       return;
     }
     el.innerHTML = `<div class="fc-db">
-      <div><span class="muted small">Dự kiến về</span><b class="income-text">${money(t.in)}</b></div>
+      <div><span class="muted small">Tới hạn nhận</span><b class="income-text">${money(t.in)}</b></div>
+      <div><span class="muted small">Công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b></div>
       <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
-      <div><span class="muted small">Chênh lệch</span><b class="${t.in - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in - t.out)}</b></div>
+      <div><span class="muted small">Chênh lệch</span><b class="${t.in + t.debt - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in + t.debt - t.out)}</b></div>
     </div>`;
   }
   async function fcToggleDone(side, k) {
@@ -677,18 +688,19 @@
     if (!(l.amount > 0)) { toast('Nhập số tiền trước khi ghi vào sổ'); return; }
     const date = l.date || keyOf(today());
     if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?`, 'Ghi vào sổ')) return;
-    const tx = { id: uid(), createdAt: Date.now(), type: side === 'in' ? 'income' : 'expense', cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
+    const tx = { id: uid(), createdAt: Date.now(), type: FC_TEXT[side].type, cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
     state.transactions.push(tx);
     setFcLine(key, side, k, { done: true, txId: tx.id, date });
-    renderCurrent(); toast(`✅ Đã ghi ${side === 'in' ? 'khoản thu' : 'khoản chi'} ${money(l.amount)} vào sổ`);
+    renderCurrent(); toast(`✅ Đã ghi ${FC_TEXT[side].word} ${money(l.amount)} vào sổ`);
   }
   async function fcCopyPrev() {
     const key = fcKeyNow(), prevD = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1), prev = fcMonth(monthKey(prevD));
     if (!fcHasData(prev)) { toast(`Tháng ${prevD.getMonth() + 1} chưa có kế hoạch để sao chép`); return; }
     if (fcHasData(fcMonth(key)) && !await askConfirm('Thay kế hoạch tháng này bằng bản sao của tháng trước?', 'Sao chép')) return;
     const shift = ds => { if (!ds) return ''; const d = parseKey(ds); const last = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 0).getDate(); return keyOf(new Date(fcAnchor.getFullYear(), fcAnchor.getMonth(), Math.min(d.getDate(), last))); };
-    const f = { in: {}, out: {} };
-    for (const side of ['in', 'out']) for (const [k, l] of Object.entries(prev[side] || {})) {
+    const f = { in: {}, out: {}, debt: {} };
+    for (const side of FC_SIDES) for (const [k, l] of Object.entries(prev[side] || {})) {
+      if (side === 'debt' && l.done) continue; // nợ đã thu xong thì không chép sang tháng sau
       const n = { amount: l.amount, date: shift(l.date), note: l.note, label: l.label };
       Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
       if (Object.keys(n).length) f[side][k] = n;
@@ -915,20 +927,21 @@
       if (!fm.size) rows.push(['Chưa có kế hoạch dòng tiền cho các tháng trong khoảng này.']);
       for (const mk of [...fm].sort()) {
         const t = fcTotals(mk), first = {};
-        for (const side of ['in', 'out']) {
+        for (const side of FC_SIDES) {
           first[side] = rows.length + 1;
           for (const def of FC_LINES[side]) {
             const l = fcLine(mk, side, def.k);
             if (!l.amount && !l.note && !l.label && !l.date) continue;
-            rows.push([mLabel(mk), side === 'in' ? 'Dự kiến về' : 'Dự kiến chi', fcName(def, l), xm(l.amount || 0), l.date ? xdate(l.date) : '', l.note || '',
-              l.done ? (side === 'in' ? 'Đã về' : 'Đã chi') : 'Chưa thực hiện']);
+            rows.push([mLabel(mk), FC_TEXT[side].group, fcName(def, l), xm(l.amount || 0), l.date ? xdate(l.date) : '', l.note || '',
+              l.done ? FC_TEXT[side].done : 'Chưa thực hiện']);
           }
           first[side + 'End'] = rows.length;
         }
         const ri = rows.length + 1;
-        rows.push([mLabel(mk), 'Tổng dự kiến về', '', xsum('D', first.in, first.inEnd, t.in)]);
+        rows.push([mLabel(mk), 'Tổng tới hạn nhận', '', xsum('D', first.in, first.inEnd, t.in)]);
+        rows.push([mLabel(mk), 'Tổng công nợ phải thu', '', xsum('D', first.debt, first.debtEnd, t.debt)]);
         rows.push([mLabel(mk), 'Tổng dự kiến chi', '', xsum('D', first.out, first.outEnd, t.out)]);
-        rows.push([mLabel(mk), 'Chênh lệch', '', { t: 'n', v: t.in - t.out, f: `D${ri}-D${ri + 1}`, z: MONEY_FMT }]);
+        rows.push([mLabel(mk), 'Chênh lệch (nhận + thu nợ − chi)', '', { t: 'n', v: t.in + t.debt - t.out, f: `D${ri}+D${ri + 1}-D${ri + 2}`, z: MONEY_FMT }]);
         rows.push([]);
       }
       add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
@@ -1182,8 +1195,8 @@
           state.forecast = {};
           if (d.forecast && typeof d.forecast === 'object') for (const [k, f] of Object.entries(d.forecast)) {
             if (!/^\d{4}-\d{2}$/.test(k) || !f || typeof f !== 'object') continue;
-            const clean = { in: {}, out: {} };
-            for (const side of ['in', 'out']) for (const def of FC_LINES[side]) {
+            const clean = { in: {}, out: {}, debt: {} };
+            for (const side of FC_SIDES) for (const def of FC_LINES[side]) {
               const l = f[side] && f[side][def.k]; if (!l || typeof l !== 'object') continue;
               const n = { amount: Number(l.amount) > 0 ? Number(l.amount) : 0, date: /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : '', note: String(l.note || '').slice(0, 120), label: String(l.label || '').slice(0, 60), done: !!l.done, txId: String(l.txId || '') };
               Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });

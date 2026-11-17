@@ -313,11 +313,12 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 }
 .fc-status:hover { border-color: var(--primary); color: var(--primary); }
 .fc-status.is-done.in { background: var(--income-soft); color: var(--income); border-color: transparent; }
+.fc-status.is-done.debt { background: var(--invest-soft); color: var(--invest); border-color: transparent; }
 .fc-status.is-done.out { background: var(--expense-soft); color: var(--expense); border-color: transparent; }
 .fc-total { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--border); }
 .fc-total b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .fc-total .bar { grid-column: 1 / -1; }
-.fc-db { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fc-db { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .fc-db > div { display: flex; flex-direction: column; }
 .fc-db b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .fc-db-empty { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
@@ -460,6 +461,7 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   .budget-total { grid-template-columns: 1fr 1fr; }
   .budget-list { grid-template-columns: 1fr; }
   .fc-db b { font-size: .98rem; }
+  .fc-db { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .x-grid { grid-template-columns: minmax(0, 1fr); }
   .x-foot .btn { width: 100%; }
   .modal { padding: 16px; }
