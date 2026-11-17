@@ -77,9 +77,9 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {}, debts: raw.debts || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {}, catNotes: {}, forecast: {} };
+    return { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {} };
   }
   function cloudDocs() {
     const docs = { meta: JSON.stringify({ budgets: state.budgets, catNotes: state.catNotes }) };
@@ -87,6 +87,7 @@
     for (const t of state.transactions) (byMonth['m-' + t.date.slice(0, 7)] ||= []).push(t);
     for (const [k, list] of Object.entries(byMonth)) docs[k] = JSON.stringify({ tx: list.slice().sort((a, b) => a.id.localeCompare(b.id)) });
     for (const [k, f] of Object.entries(state.forecast || {})) if (fcHasData(f)) docs['f-' + k] = JSON.stringify(f);
+    if (Object.keys(state.debts || {}).length) docs.debts = JSON.stringify(state.debts);
     return docs;
   }
   function queueWrite(id, body) {
@@ -119,20 +120,22 @@
     if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
     cloud = { db, base: 'data/users/' + id };
     storageMode = 'cloud';
-    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {} };
+    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {} };
     renderCurrent();
     let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
     db.collection(cloud.base).onSnapshot(snap => {
       const tx = [];
-      let budgets = {}, catNotes = {}; const forecast = {};
+      let budgets = {}, catNotes = {}, debts = {}; const forecast = {};
       for (const d of snap.docs) {
         const body = d.data() || {};
+        if (d.id === 'debts') { debts = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id.startsWith('f-')) { forecast[d.id.slice(2)] = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {}, catNotes: body.catNotes || {} }) : JSON.stringify({ tx: body.tx || [] });
         if (d.id === 'meta') { budgets = { ...(body.budgets || {}) }; catNotes = { ...(body.catNotes || {}) }; }
         else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
-      state = { transactions: tx, budgets, catNotes, forecast };
+      // Bản cũ lưu công nợ trong từng tháng: chuyển sang danh sách riêng (lần lưu kế tiếp sẽ ghi lại)
+      state = migrateDebts({ transactions: tx, budgets, catNotes, forecast, debts });
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
       renderCurrent();
     }, () => {
@@ -382,7 +385,8 @@
     const todayS = sumRange(tk, tk);
 
     $('#dbBalance').textContent = money(all.net);
-    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}`;
+    const debtOpen = fcTotals(monthKey(t)).debtOpen;
+    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}` + (debtOpen ? ` • Công nợ chưa thu ${money(debtOpen)}` : '');
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
@@ -597,26 +601,60 @@
       { k: 'c3',       name: 'Khoản chi khác 3', cat: 'chikhac', editable: true },
     ],
   };
-  const FC_SIDES = ['in', 'debt', 'out'];
+  const FC_SIDES = ['in', 'debt', 'out'];   // thứ tự hiển thị
+  const FC_MONTH_SIDES = ['in', 'out'];      // lưu theo tháng; công nợ lưu riêng trong state.debts
   const FC_TEXT = {
     in:   { group: 'Tới hạn nhận',     done: 'Đã nhận', type: 'income',  word: 'khoản thu' },
     debt: { group: 'Công nợ phải thu', done: 'Đã thu',  type: 'income',  word: 'khoản thu nợ' },
     out:  { group: 'Dự kiến chi',      done: 'Đã chi',  type: 'expense', word: 'khoản chi' },
   };
   const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-  const fcHasData = f => f && FC_SIDES.some(side => Object.values(f[side] || {}).some(l => l && (l.amount || l.note || l.label || l.date)));
-  const fcMonth = key => state.forecast[key] || { in: {}, out: {}, debt: {} };
-  const fcLine = (key, side, k) => (fcMonth(key)[side] || {})[k] || {};
+  const fcHasData = f => f && FC_MONTH_SIDES.some(side => Object.values(f[side] || {}).some(l => l && (l.amount || l.note || l.label || l.date)));
+  const fcMonth = key => state.forecast[key] || { in: {}, out: {} };
+  // Công nợ phải thu là tiền người khác còn nợ (chưa thu được), không thuộc tháng nào: hiện ở mọi tháng tới khi thu xong
+  const fcLine = (key, side, k) => (side === 'debt' ? (state.debts || {})[k] : (fcMonth(key)[side] || {})[k]) || {};
   const fcName = (def, line) => line.label || def.name;
+  // debt / debtPending / debtDone: công nợ có ngày hẹn trả trong tháng `key` (tính vào chênh lệch của tháng)
+  // debtOpen: tổng công nợ chưa thu (mọi tháng); debtAll: tổng mọi khoản công nợ đang theo dõi
   function fcTotals(key) {
-    const r = { in: 0, out: 0, debt: 0, inPending: 0, outPending: 0, debtPending: 0, inDone: 0, outDone: 0, debtDone: 0 };
-    for (const side of FC_SIDES) for (const def of FC_LINES[side]) {
+    const r = { in: 0, out: 0, debt: 0, inPending: 0, outPending: 0, debtPending: 0, inDone: 0, outDone: 0, debtDone: 0, debtOpen: 0, debtOpenCount: 0, debtAll: 0 };
+    for (const side of FC_MONTH_SIDES) for (const def of FC_LINES[side]) {
       const l = fcLine(key, side, def.k), a = Number(l.amount) || 0;
       r[side] += a; if (l.done) r[side + 'Done'] += a; else r[side + 'Pending'] += a;
     }
+    for (const def of FC_LINES.debt) {
+      const l = fcLine(key, 'debt', def.k), a = Number(l.amount) || 0;
+      if (!a) continue;
+      r.debtAll += a;
+      if (!l.done) { r.debtOpen += a; r.debtOpenCount++; }
+      if (l.date && l.date.slice(0, 7) === key) { r.debt += a; if (l.done) r.debtDone += a; else r.debtPending += a; }
+    }
     return r;
   }
+  function migrateDebts(st) {
+    st.debts = { ...(st.debts || {}) };
+    const free = () => FC_LINES.debt.map(d => d.k).find(k => !st.debts[k]);
+    const forecast = {};
+    for (const [mk, f] of Object.entries(st.forecast || {})) {
+      if (f && f.debt) for (const [k, l] of Object.entries(f.debt)) {
+        if (!l || !(l.amount || l.label || l.note || l.date)) continue;
+        const slot = !st.debts[k] ? k : free();
+        if (slot) st.debts[slot] = l;
+      }
+      const rest = { in: (f && f.in) || {}, out: (f && f.out) || {} };
+      if (fcHasData(rest)) forecast[mk] = rest;
+    }
+    st.forecast = forecast;
+    return st;
+  }
   function setFcLine(key, side, k, patch) {
+    if (side === 'debt') {
+      const l = { ...((state.debts || {})[k] || {}), ...patch };
+      for (const [pk, pv] of Object.entries(l)) if (pv === '' || pv === 0 || pv === false || pv == null) delete l[pk];
+      const d = { ...(state.debts || {}) };
+      if (Object.keys(l).length) d[k] = l; else delete d[k];
+      state.debts = d; save(); return;
+    }
     const f = JSON.parse(JSON.stringify(fcMonth(key)));
     f[side] = f[side] || {};
     f[side][k] = { ...(f[side][k] || {}), ...patch };
@@ -668,13 +706,13 @@
     const projected = all.cash + t.inPending + t.debtPending - t.outPending;
     $('#fcStats').innerHTML =
       statCard('📥', 'ico-income', 'Tới hạn nhận', money(t.in), { cls: 'muted', text: `Đã nhận ${money(t.inDone)} • Còn chờ ${money(t.inPending)}` }) +
-      statCard('🧾', 'ico-invest', 'Công nợ phải thu', money(t.debt), { cls: 'muted', text: `Đã thu ${money(t.debtDone)} • Còn phải thu ${money(t.debtPending)}` }) +
+      statCard('🧾', 'ico-invest', 'Công nợ chưa thu', money(t.debtOpen), { cls: 'muted', text: `${t.debtOpenCount} khoản • Hẹn trả trong tháng này ${money(t.debtPending)}` }) +
       statCard('📤', 'ico-expense', 'Dự kiến chi ra', money(t.out), { cls: 'muted', text: `Đã chi ${money(t.outDone)} • Còn phải chi ${money(t.outPending)}` }) +
-      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: net >= 0 ? 'Nhận + thu nợ − chi: dư tiền' : 'Nhận + thu nợ − chi: thiếu tiền' }) +
+      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: `Nhận + nợ hẹn trả trong tháng − chi: ${net >= 0 ? 'dư tiền' : 'thiếu tiền'}` }) +
       statCard('💵', 'ico-warn', 'Tiền mặt sau khi thu/chi hết', money(projected), { cls: projected >= 0 ? 'muted' : 'up-bad', text: `Tiền mặt hiện có ${money(all.cash)}` });
     const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
     $('#fcTotal-in').innerHTML = `<span>Tổng tới hạn nhận</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
-    $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b>${bar(t.debtDone, t.debt, 'invest')}`;
+    $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b>${bar(t.debtAll - t.debtOpen, t.debtAll, 'invest')}`;
     $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
   // Ô trên Tổng quan: tháng này và tháng tới (tháng nào có kế hoạch thì hiện)
@@ -682,6 +720,11 @@
     const t0 = today(), el = $('#dbForecast');
     const months = [0, 1].map(i => new Date(t0.getFullYear(), t0.getMonth() + i, 1))
       .map(d => ({ d, key: monthKey(d), t: fcTotals(monthKey(d)) })).filter(x => x.t.in || x.t.out || x.t.debt);
+    const open = fcTotals(monthKey(t0));
+    const debtHtml = open.debtOpen ? `<div class="fc-db-month">
+      <div class="fc-db-head"><b>🧾 Công nợ phải thu (chưa thu)</b><button class="link-btn" data-goto="forecast">Xem →</button></div>
+      <div class="fc-db-debt"><b class="invest-text">${money(open.debtOpen)}</b><span class="muted small">${open.debtOpenCount} khoản người khác còn nợ bạn</span></div></div>` : '';
+    if (!months.length && debtHtml) { el.innerHTML = debtHtml; return; }
     if (!months.length) {
       el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập kế hoạch dòng tiền cho tháng này và tháng tới.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
       return;
@@ -690,10 +733,10 @@
       <div class="fc-db-head"><b>Tháng ${d.getMonth() + 1}/${d.getFullYear()}</b><button class="link-btn" data-fc-open="${key}">Mở →</button></div>
       <div class="fc-db">
         <div><span class="muted small">Tới hạn nhận</span><b class="income-text">${money(t.in)}</b></div>
-        <div><span class="muted small">Công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b></div>
+        <div><span class="muted small">Nợ hẹn trả trong tháng</span><b class="invest-text">${money(t.debt)}</b></div>
         <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
         <div><span class="muted small">Chênh lệch</span><b class="${t.in + t.debt - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in + t.debt - t.out)}</b></div>
-      </div></div>`).join('');
+      </div></div>`).join('') + debtHtml;
   }
   async function fcToggleDone(side, k) {
     const key = fcKeyNow(), def = FC_LINES[side].find(x => x.k === k), l = fcLine(key, side, k), c = catOf(def.cat);
@@ -705,7 +748,8 @@
       return;
     }
     if (!(l.amount > 0)) { toast('Nhập số tiền trước khi ghi vào sổ'); return; }
-    const date = l.date || keyOf(today());
+    // Ghi sổ là xác nhận tiền đã nhận / đã chi: ngày hẹn còn ở tương lai thì ghi theo hôm nay
+    const date = l.date && l.date <= keyOf(today()) ? l.date : keyOf(today());
     if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?`, 'Ghi vào sổ')) return;
     const tx = { id: uid(), createdAt: Date.now(), type: FC_TEXT[side].type, cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
     state.transactions.push(tx);
@@ -717,9 +761,8 @@
     if (!fcHasData(prev)) { toast(`Tháng ${prevD.getMonth() + 1} chưa có kế hoạch để sao chép`); return; }
     if (fcHasData(fcMonth(key)) && !await askConfirm('Thay kế hoạch tháng này bằng bản sao của tháng trước?', 'Sao chép')) return;
     const shift = ds => { if (!ds) return ''; const d = parseKey(ds); const last = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 0).getDate(); return keyOf(new Date(fcAnchor.getFullYear(), fcAnchor.getMonth(), Math.min(d.getDate(), last))); };
-    const f = { in: {}, out: {}, debt: {} };
-    for (const side of FC_SIDES) for (const [k, l] of Object.entries(prev[side] || {})) {
-      if (side === 'debt' && l.done) continue; // nợ đã thu xong thì không chép sang tháng sau
+    const f = { in: {}, out: {} };
+    for (const side of FC_MONTH_SIDES) for (const [k, l] of Object.entries(prev[side] || {})) {
       const n = { amount: l.amount, date: shift(l.date), note: l.note, label: l.label };
       Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
       if (Object.keys(n).length) f[side][k] = n;
@@ -947,10 +990,10 @@
       const fm = new Set(months.filter(mk => state.forecast[mk]));
       const tk = keyOf(today());
       if (tk >= fromKey && tk <= toKey) { const nx = monthKey(new Date(today().getFullYear(), today().getMonth() + 1, 1)); if (state.forecast[nx]) fm.add(nx); }
-      if (!fm.size) rows.push(['Chưa có kế hoạch dòng tiền cho các tháng trong khoảng này.']);
+      if (!fm.size && !Object.keys(state.debts || {}).length) rows.push(['Chưa có kế hoạch dòng tiền cho các tháng trong khoảng này.']);
       for (const mk of [...fm].sort()) {
         const t = fcTotals(mk), first = {};
-        for (const side of FC_SIDES) {
+        for (const side of FC_MONTH_SIDES) {
           first[side] = rows.length + 1;
           for (const def of FC_LINES[side]) {
             const l = fcLine(mk, side, def.k);
@@ -962,10 +1005,20 @@
         }
         const ri = rows.length + 1;
         rows.push([mLabel(mk), 'Tổng tới hạn nhận', '', xsum('D', first.in, first.inEnd, t.in)]);
-        rows.push([mLabel(mk), 'Tổng công nợ phải thu', '', xsum('D', first.debt, first.debtEnd, t.debt)]);
         rows.push([mLabel(mk), 'Tổng dự kiến chi', '', xsum('D', first.out, first.outEnd, t.out)]);
-        rows.push([mLabel(mk), 'Chênh lệch (nhận + thu nợ − chi)', '', { t: 'n', v: t.in + t.debt - t.out, f: `D${ri}+D${ri + 1}-D${ri + 2}`, z: MONEY_FMT }]);
+        rows.push([mLabel(mk), 'Chênh lệch (nhận − chi)', '', { t: 'n', v: t.in - t.out, f: `D${ri}-D${ri + 1}`, z: MONEY_FMT }]);
         rows.push([]);
+      }
+      const debtDefs = FC_LINES.debt.filter(def => fcLine('', 'debt', def.k).amount);
+      if (debtDefs.length) {
+        const d0 = rows.length + 1;
+        for (const def of debtDefs) {
+          const l = fcLine('', 'debt', def.k);
+          rows.push(['Công nợ', 'Công nợ phải thu', fcName(def, l), xm(l.amount), l.date ? xdate(l.date) : '', l.note || '', l.done ? 'Đã thu' : 'Chưa thu']);
+        }
+        const tt = fcTotals(monthKey(today()));
+        rows.push(['Công nợ', 'Tổng công nợ', '', xsum('D', d0, rows.length, tt.debtAll)]);
+        rows.push(['Công nợ', 'Còn chưa thu', '', xm(tt.debtOpen)]);
       }
       add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
     }
@@ -1190,7 +1243,7 @@
       try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
       applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast }, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast, debts: state.debts }, null, 2), 'application/json'));
     $('#xSheets').innerHTML = XL_SHEETS.map(x => `<label class="x-check"><input type="checkbox" id="x-sheet-${x.id}" value="${x.id}" checked /> ${x.name}</label>`).join('');
     ['#xRange', '#xFrom', '#xTo'].forEach(id => $(id).addEventListener('change', xSummary));
     $('#exportXlsx').addEventListener('click', () => {
@@ -1218,15 +1271,23 @@
           state.forecast = {};
           if (d.forecast && typeof d.forecast === 'object') for (const [k, f] of Object.entries(d.forecast)) {
             if (!/^\d{4}-\d{2}$/.test(k) || !f || typeof f !== 'object') continue;
-            const clean = { in: {}, out: {}, debt: {} };
+            const clean = { in: {}, out: {}, debt: {} };  // debt: bản sao lưu cũ, migrateDebts chuyển ra danh sách riêng
             for (const side of FC_SIDES) for (const def of FC_LINES[side]) {
               const l = f[side] && f[side][def.k]; if (!l || typeof l !== 'object') continue;
               const n = { amount: Number(l.amount) > 0 ? Number(l.amount) : 0, date: /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : '', note: String(l.note || '').slice(0, 120), label: String(l.label || '').slice(0, 60), done: !!l.done, txId: String(l.txId || '') };
               Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
               if (Object.keys(n).length) clean[side][def.k] = n;
             }
-            if (fcHasData(clean)) state.forecast[k] = clean;
+            if (fcHasData(clean) || Object.keys(clean.debt).length) state.forecast[k] = clean;
           }
+          state.debts = {};
+          if (d.debts && typeof d.debts === 'object') for (const def of FC_LINES.debt) {
+            const l = d.debts[def.k]; if (!l || typeof l !== 'object') continue;
+            const n = { amount: Number(l.amount) > 0 ? Number(l.amount) : 0, date: /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : '', note: String(l.note || '').slice(0, 120), label: String(l.label || '').slice(0, 60), done: !!l.done, txId: String(l.txId || '') };
+            Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
+            if (Object.keys(n).length) state.debts[def.k] = n;
+          }
+          migrateDebts(state);
           save(); renderCurrent(); toast('✅ Đã khôi phục dữ liệu');
         } catch (err) { toast('❌ File không hợp lệ'); }
         e.target.value = '';
@@ -1245,7 +1306,7 @@
     $('#view-settings').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cat-note-input')) e.target.blur(); });
     $('#clearAll').addEventListener('click', async () => {
       if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
-      state.transactions = []; state.budgets = {}; state.forecast = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
+      state.transactions = []; state.budgets = {}; state.forecast = {}; state.debts = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
     });
 
     let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderCurrent, 250); });
@@ -1271,6 +1332,7 @@
   function init() {
     const t = today();
     $('#todayLabel').textContent = `${DOW[t.getDay()]}, ngày ${dmy(t)}`;
+    state = migrateDebts(state); // dữ liệu trình duyệt bản cũ: công nợ nằm trong từng tháng
     applyTheme();
     fillCatFilter();
     bind();
