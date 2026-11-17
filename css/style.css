@@ -335,6 +335,8 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .cat-btn .e { font-size: 1.4rem; }
 .cat-btn:hover { transform: translateY(-1px); }
 .cat-btn.active { border-color: var(--primary); background: var(--primary-soft); }
+.cat-hint { font-size: .82rem; color: var(--muted); }
+.cat-hint:empty { display: none; }
 .modal-foot { display: flex; gap: 10px; align-items: center; }
 .spacer { flex: 1; }
 

@@ -26,7 +26,7 @@
     { id: 'dilai',     name: 'Xăng xe ô tô',                        icon: '⛽', color: '#0ea5e9' },
     { id: 'phixe',     name: 'Phí xe ô tô',                         icon: '🚗', color: '#0284c7' },
     { id: 'vienthong', name: 'Điện thoại',                          icon: '📱', color: '#3b82f6' },
-    { id: 'anuong',    name: 'Ăn uống',                             icon: '🍜', color: '#f97316' },
+    { id: 'anuong',    name: 'Ăn uống & cà phê',                    icon: '🍜', color: '#f97316', desc: 'Ăn uống và cà phê hằng ngày' },
     { id: 'tiepkhach', name: 'Tiếp khách',                          icon: '🥂', color: '#ea580c' },
     { id: 'hieuhi',    name: 'Chi phí quà tặng, biếu khách hàng',   icon: '🎁', color: '#d946ef' },
     { id: 'muasam',    name: 'Mua sắm cá nhân',                     icon: '🛍️', color: '#ec4899' },
@@ -561,7 +561,7 @@
 
   // ---------------- CÀI ĐẶT ----------------
   function renderSettings() {
-    const chips = cats => cats.map(c => `<span class="chip">${c.icon} ${esc(c.name)}</span>`).join('');
+    const chips = cats => cats.map(c => `<span class="chip">${c.icon} ${esc(c.name)}${c.desc ? ` <small class="muted">(${esc(c.desc)})</small>` : ''}</span>`).join('');
     $('#incomeCatList').innerHTML = chips(INCOME_CATS);
     $('#expenseCatList').innerHTML = chips(EXPENSE_CATS);
     $('#investCatList').innerHTML = chips(INVEST_CATS);
@@ -662,7 +662,9 @@
     $$('#dirToggle button').forEach(b => b.classList.toggle('active', b.dataset.dir === mDir));
     const cats = CATS_BY_TYPE[mType];
     if (!cats.some(c => c.id === mCat)) mCat = cats[0].id;
-    $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
+    $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(c.desc || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
+    const sel = catOf(mCat);
+    $('#catHint').textContent = sel.desc ? `${sel.icon} ${sel.name}: ${sel.desc}` : '';
   }
   function saveTx(e) {
     e.preventDefault();
