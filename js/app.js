@@ -722,6 +722,7 @@
 
   // ---------------- CÀI ĐẶT ----------------
   function renderSettings() {
+    xSummary();
     // Đang gõ ghi chú thì không vẽ lại để không mất chữ
     if (document.activeElement && document.activeElement.classList.contains('cat-note-input')) return;
     const rows = cats => cats.map(c => `<label class="cat-note" for="note-${c.id}">
@@ -748,11 +749,197 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
-  function exportCsv() {
-    const q = v => `"${String(v).replace(/"/g, '""')}"`;
-    const rows = [['Ngày', 'Loại', 'Danh mục', 'Số tiền', 'Ghi chú']];
-    sortTx(state.transactions).forEach(t => rows.push([dmy(parseKey(t.date)), TYPE_NAMES[t.type] + (t.type === 'invest' ? (t.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : ''), catOf(t.cat).name, isWithdraw(t) || t.type === 'income' ? t.amount : -t.amount, t.note || '']));
-    download(`so-thu-chi-${keyOf(today())}.csv`, '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+  // ---------------- XUẤT EXCEL (.xlsx) ----------------
+  // Dùng SheetJS (biến toàn cục XLSX). Ngày ghi dạng ngày thật của Excel, tiền dạng số có định dạng #,##0,
+  // dòng tổng dùng công thức SUM để sửa số trong Excel vẫn tự cộng lại.
+  const XL_SHEETS = [
+    { id: 'overview', name: 'Tổng quan' },
+    { id: 'tx',       name: 'Giao dịch' },
+    { id: 'cat',      name: 'Theo hạng mục' },
+    { id: 'month',    name: 'Theo tháng' },
+    { id: 'budget',   name: 'Ngân sách' },
+    { id: 'forecast', name: 'Dòng tiền dự kiến' },
+  ];
+  const MONEY_FMT = '#,##0';
+  const xm = v => ({ t: 'n', v: Math.round(v || 0), z: MONEY_FMT });
+  const xpct = v => ({ t: 'n', v: v || 0, z: '0.0%' });
+  const xdate = key => { const [y, mo, d] = key.split('-').map(Number); return { t: 'n', v: (Date.UTC(y, mo - 1, d) - Date.UTC(1899, 11, 30)) / 864e5, z: 'dd/mm/yyyy' }; };
+  const xsum = (col, r1, r2, v) => (r2 >= r1 ? { t: 'n', v: Math.round(v || 0), f: `SUM(${col}${r1}:${col}${r2})`, z: MONEY_FMT } : xm(0));
+  const colL = c => String.fromCharCode(65 + c);
+  function xSheet(rows, widths, filter) {
+    const ws = {}; let maxC = 0;
+    rows.forEach((row, r) => row.forEach((val, c) => {
+      if (val === null || val === undefined || val === '') return;
+      const cell = typeof val === 'object' ? { ...val } : { t: typeof val === 'number' ? 'n' : 's', v: val };
+      ws[XLSX.utils.encode_cell({ r, c })] = cell; maxC = Math.max(maxC, c);
+    }));
+    ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(rows.length - 1, 0), c: maxC } });
+    if (widths) ws['!cols'] = widths.map(w => ({ wch: w }));
+    if (filter) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: filter[0], c: 0 }, e: { r: filter[1], c: maxC } }) };
+    return ws;
+  }
+  const monthsBetween = (fromKey, toKey) => {
+    const out = []; let d = new Date(+fromKey.slice(0, 4), +fromKey.slice(5, 7) - 1, 1);
+    const end = new Date(+toKey.slice(0, 4), +toKey.slice(5, 7) - 1, 1);
+    while (d <= end && out.length < 600) { out.push(monthKey(d)); d = new Date(d.getFullYear(), d.getMonth() + 1, 1); }
+    return out;
+  };
+  const monthRange = mk => { const [y, mo] = mk.split('-').map(Number); return [keyOf(new Date(y, mo - 1, 1)), keyOf(new Date(y, mo, 0))]; };
+  const mLabel = mk => `Tháng ${+mk.slice(5)}/${mk.slice(0, 4)}`;
+
+  function xRange() {
+    const v = $('#xRange').value, t = today(), y = t.getFullYear(), m = t.getMonth(), q = Math.floor(m / 3);
+    const span = (a, b) => [keyOf(a), keyOf(b)];
+    if (v === 'thisMonth') return span(new Date(y, m, 1), new Date(y, m + 1, 0));
+    if (v === 'lastMonth') return span(new Date(y, m - 1, 1), new Date(y, m, 0));
+    if (v === 'thisQuarter') return span(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0));
+    if (v === 'thisYear') return span(new Date(y, 0, 1), new Date(y, 11, 31));
+    if (v === 'lastYear') return span(new Date(y - 1, 0, 1), new Date(y - 1, 11, 31));
+    if (v === 'custom') {
+      const f = $('#xFrom').value, to = $('#xTo').value;
+      return f && to ? (f <= to ? [f, to] : [to, f]) : null;
+    }
+    const dates = state.transactions.map(x => x.date).sort();
+    const fcm = Object.keys(state.forecast || {}).sort();
+    const lo = [dates[0], fcm[0] && fcm[0] + '-01', keyOf(t)].filter(Boolean).sort()[0];
+    const hi = [dates[dates.length - 1], fcm.length && monthRange(fcm[fcm.length - 1])[1], keyOf(t)].filter(Boolean).sort().pop();
+    return [lo, hi];
+  }
+  function xSummary() {
+    const el = $('#xSummary'); if (!el) return;
+    $('#xCustom').classList.toggle('hidden', $('#xRange').value !== 'custom');
+    const r = xRange();
+    if (!r) { el.textContent = 'Chọn ngày bắt đầu và ngày kết thúc.'; return; }
+    const n = state.transactions.filter(x => x.date >= r[0] && x.date <= r[1]).length;
+    el.textContent = `Sẽ xuất ${n} giao dịch từ ${dmy(parseKey(r[0]))} đến ${dmy(parseKey(r[1]))}.`;
+  }
+
+  function buildWorkbook(fromKey, toKey, sheetIds) {
+    const wb = XLSX.utils.book_new();
+    wb.Props = { Title: 'Sổ Thu Chi', CreatedDate: new Date() };
+    const txs = state.transactions.filter(x => x.date >= fromKey && x.date <= toKey).slice()
+      .sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt || 0) - (b.createdAt || 0));
+    const r = sumRange(fromKey, toKey);
+    const months = monthsBetween(fromKey, toKey);
+    const period = `${dmy(parseKey(fromKey))} – ${dmy(parseKey(toKey))}`;
+    const add = (id, ws) => XLSX.utils.book_append_sheet(wb, ws, XL_SHEETS.find(x => x.id === id).name);
+
+    if (sheetIds.includes('overview')) {
+      const acc = sumRange('0000-00-00', toKey);
+      add('overview', xSheet([
+        ['SỔ THU CHI – BÁO CÁO TÀI CHÍNH CÁ NHÂN'],
+        ['Khoảng thời gian', period],
+        ['Ngày xuất', xdate(keyOf(today()))],
+        [],
+        ['TRONG KỲ', 'Số tiền (₫)'],
+        ['Tổng thu nhập', xm(r.income)],
+        ['Tổng chi tiêu', xm(r.expense)],
+        ['Đầu tư (rót vốn − rút vốn)', xm(r.invest)],
+        ['Chênh lệch thu − chi', { t: 'n', v: r.net, f: 'B6-B7', z: MONEY_FMT }],
+        ['Tiền mặt còn lại (thu − chi − đầu tư)', { t: 'n', v: r.cash, f: 'B6-B7-B8', z: MONEY_FMT }],
+        ['Tỷ lệ tiết kiệm & đầu tư', { t: 'n', v: r.income ? r.net / r.income : 0, f: 'IF(B6=0,0,B9/B6)', z: '0.0%' }],
+        ['Số giao dịch', r.count],
+        [],
+        [`LŨY KẾ ĐẾN ${dmy(parseKey(toKey))}`, 'Số tiền (₫)'],
+        ['Tổng tài sản tích lũy (thu − chi)', xm(acc.net)],
+        ['Tiền mặt', xm(acc.cash)],
+        ['Đang đầu tư', xm(acc.invest)],
+      ], [40, 22]));
+    }
+
+    if (sheetIds.includes('tx')) {
+      const rows = [['Ngày', 'Loại', 'Hạng mục', 'Thu nhập (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫) (+rót / −rút)', 'Ghi chú']];
+      for (const x of txs) {
+        const c = catOf(x.cat), type = TYPE_NAMES[x.type] + (x.type === 'invest' ? (x.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : '');
+        rows.push([xdate(x.date), type, c.name, x.type === 'income' ? xm(x.amount) : '', x.type === 'expense' ? xm(x.amount) : '',
+          x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.note || '']);
+      }
+      const last = rows.length;
+      rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), '']);
+      add('tx', xSheet(rows, [12, 20, 34, 16, 16, 22, 44], [0, last - 1]));
+    }
+
+    if (sheetIds.includes('cat')) {
+      const rows = [['Loại', 'Hạng mục', 'Số tiền (₫)', 'Tỷ trọng', 'Số giao dịch', 'Ghi chú hạng mục']];
+      const counts = {}; txs.forEach(x => { counts[x.cat] = (counts[x.cat] || 0) + 1; });
+      for (const [type, cats] of Object.entries(CATS_BY_TYPE)) {
+        const total = r[type];
+        const start = rows.length + 1;
+        cats.map(c => ({ c, v: r.byCat[c.id] || 0 })).sort((a, b) => b.v - a.v).forEach(({ c, v }) => {
+          rows.push([TYPE_NAMES[type], c.name, xm(v), xpct(total ? v / total : 0), counts[c.id] || 0, catNote(c)]);
+        });
+        rows.push([`Tổng ${TYPE_NAMES[type].toLowerCase()}`, '', xsum('C', start, rows.length, total), '', '', '']);
+        rows.push([]);
+      }
+      add('cat', xSheet(rows, [12, 36, 18, 10, 13, 44]));
+    }
+
+    if (sheetIds.includes('month')) {
+      const rows = [['Tháng', 'Thu nhập (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫)', 'Chênh lệch thu − chi (₫)', 'Tiền mặt còn lại (₫)', 'Tỷ lệ tiết kiệm']];
+      months.forEach((mk, i) => {
+        const [a, b] = monthRange(mk), x = sumRange(a < fromKey ? fromKey : a, b > toKey ? toKey : b), row = i + 2;
+        rows.push([mLabel(mk), xm(x.income), xm(x.expense), xm(x.invest),
+          { t: 'n', v: x.net, f: `B${row}-C${row}`, z: MONEY_FMT }, { t: 'n', v: x.cash, f: `B${row}-C${row}-D${row}`, z: MONEY_FMT },
+          { t: 'n', v: x.income ? x.net / x.income : 0, f: `IF(B${row}=0,0,E${row}/B${row})`, z: '0.0%' }]);
+      });
+      const last = rows.length, n = last + 1;
+      rows.push(['TỔNG CỘNG', xsum('B', 2, last, r.income), xsum('C', 2, last, r.expense), xsum('D', 2, last, r.invest),
+        xsum('E', 2, last, r.net), xsum('F', 2, last, r.cash), { t: 'n', v: r.income ? r.net / r.income : 0, f: `IF(B${n}=0,0,E${n}/B${n})`, z: '0.0%' }]);
+      add('month', xSheet(rows, [16, 16, 16, 16, 22, 20, 15]));
+    }
+
+    if (sheetIds.includes('budget')) {
+      const rows = [['Tháng', 'Hạng mục', 'Hạn mức (₫)', 'Đã chi (₫)', 'Còn lại (₫)', '% đã dùng', 'Trạng thái']];
+      const limited = EXPENSE_CATS.filter(c => state.budgets[c.id] > 0);
+      if (!limited.length) rows.push(['Chưa đặt hạn mức chi tiêu cho hạng mục nào.']);
+      for (const mk of months) {
+        const [a, b] = monthRange(mk);
+        if (a > keyOf(today())) continue; // tháng chưa tới thì chưa có gì để so với hạn mức
+        const x = sumRange(a, b);
+        for (const c of limited) {
+          const lim = state.budgets[c.id], sp = x.byCat[c.id] || 0, p = sp / lim, row = rows.length + 1;
+          rows.push([mLabel(mk), c.name, xm(lim), xm(sp), { t: 'n', v: lim - sp, f: `C${row}-D${row}`, z: MONEY_FMT },
+            { t: 'n', v: p, f: `IF(C${row}=0,0,D${row}/C${row})`, z: '0%' }, p > 1 ? 'Vượt hạn mức' : p >= .8 ? 'Sắp hết' : 'Trong hạn mức']);
+        }
+      }
+      add('budget', xSheet(rows, [16, 36, 16, 16, 16, 11, 16], limited.length ? [0, rows.length - 1] : null));
+    }
+
+    if (sheetIds.includes('forecast')) {
+      const rows = [['Tháng', 'Loại', 'Khoản', 'Số tiền (₫)', 'Ngày dự kiến', 'Ghi chú', 'Trạng thái']];
+      const fm = new Set(months.filter(mk => state.forecast[mk]));
+      const tk = keyOf(today());
+      if (tk >= fromKey && tk <= toKey) { const nx = monthKey(new Date(today().getFullYear(), today().getMonth() + 1, 1)); if (state.forecast[nx]) fm.add(nx); }
+      if (!fm.size) rows.push(['Chưa có kế hoạch dòng tiền cho các tháng trong khoảng này.']);
+      for (const mk of [...fm].sort()) {
+        const t = fcTotals(mk), first = {};
+        for (const side of ['in', 'out']) {
+          first[side] = rows.length + 1;
+          for (const def of FC_LINES[side]) {
+            const l = fcLine(mk, side, def.k);
+            if (!l.amount && !l.note && !l.label && !l.date) continue;
+            rows.push([mLabel(mk), side === 'in' ? 'Dự kiến về' : 'Dự kiến chi', fcName(def, l), xm(l.amount || 0), l.date ? xdate(l.date) : '', l.note || '',
+              l.done ? (side === 'in' ? 'Đã về' : 'Đã chi') : 'Chưa thực hiện']);
+          }
+          first[side + 'End'] = rows.length;
+        }
+        const ri = rows.length + 1;
+        rows.push([mLabel(mk), 'Tổng dự kiến về', '', xsum('D', first.in, first.inEnd, t.in)]);
+        rows.push([mLabel(mk), 'Tổng dự kiến chi', '', xsum('D', first.out, first.outEnd, t.out)]);
+        rows.push([mLabel(mk), 'Chênh lệch', '', { t: 'n', v: t.in - t.out, f: `D${ri}-D${ri + 1}`, z: MONEY_FMT }]);
+        rows.push([]);
+      }
+      add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
+    }
+    return wb;
+  }
+  async function exportExcel(fromKey, toKey, sheetIds) {
+    if (typeof XLSX === 'undefined') { toast('⚠️ Chưa tải được thư viện Excel, hãy kiểm tra mạng rồi thử lại'); return; }
+    if (!sheetIds.length) { toast('Chọn ít nhất một sheet để xuất'); return; }
+    const wb = buildWorkbook(fromKey, toKey, sheetIds);
+    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array', compression: true });
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    await download(`so-thu-chi_${fromKey}_${toKey}.xlsx`, blob, blob.type);
   }
 
   // ---------------- DỮ LIỆU MẪU ----------------
@@ -966,7 +1153,16 @@
       applyTheme(); renderCurrent();
     });
     $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast }, null, 2), 'application/json'));
-    $('#exportCsv').addEventListener('click', exportCsv);
+    $('#xSheets').innerHTML = XL_SHEETS.map(x => `<label class="x-check"><input type="checkbox" id="x-sheet-${x.id}" value="${x.id}" checked /> ${x.name}</label>`).join('');
+    ['#xRange', '#xFrom', '#xTo'].forEach(id => $(id).addEventListener('change', xSummary));
+    $('#exportXlsx').addEventListener('click', () => {
+      const r = xRange(); if (!r) { toast('Chọn ngày bắt đầu và ngày kết thúc'); return; }
+      exportExcel(r[0], r[1], $$('#xSheets input:checked').map(i => i.value));
+    });
+    $('#rpExcel').addEventListener('click', () => {
+      const info = periodInfo(rpType, rpAnchor);
+      exportExcel(keyOf(info.start), keyOf(info.end), XL_SHEETS.map(x => x.id));
+    });
     $('#importJson').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       const reader = new FileReader();

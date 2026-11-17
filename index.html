@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/vendor/chart.umd.min.js" defer></script>
+  <script src="js/vendor/xlsx.mini.min.js" defer></script>
   <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -149,6 +150,7 @@
             <div class="period-label" id="periodLabel"></div>
             <button class="icon-btn" id="nextPeriod" title="Kỳ sau">›</button>
             <button class="btn btn-ghost btn-sm" id="currentPeriod">Hiện tại</button>
+            <button class="btn btn-ghost btn-sm" id="rpExcel" title="Xuất kỳ đang xem ra file Excel">⬇️ Excel</button>
           </div>
         </div>
 
@@ -234,16 +236,41 @@
 
       <!-- ============ CÀI ĐẶT ============ -->
       <section class="view" id="view-settings">
+        <div class="card" id="exportCard">
+          <h3>📊 Xuất dữ liệu ra Excel</h3>
+          <p class="muted small">Tạo file Excel (.xlsx) gồm nhiều sheet, mở được bằng Excel, Google Sheets hoặc Numbers. Dòng tổng dùng công thức nên sửa số trong Excel vẫn tự cộng lại.</p>
+          <div class="x-grid">
+            <label class="field"><span>Khoảng thời gian</span>
+              <select id="xRange" class="input">
+                <option value="thisMonth">Tháng này</option>
+                <option value="lastMonth">Tháng trước</option>
+                <option value="thisQuarter">Quý này</option>
+                <option value="thisYear">Năm nay</option>
+                <option value="lastYear">Năm trước</option>
+                <option value="all">Toàn bộ dữ liệu</option>
+                <option value="custom">Tùy chọn ngày…</option>
+              </select>
+            </label>
+            <div class="x-custom hidden" id="xCustom">
+              <label class="field"><span>Từ ngày</span><input type="date" id="xFrom" class="input" /></label>
+              <label class="field"><span>Đến ngày</span><input type="date" id="xTo" class="input" /></label>
+            </div>
+          </div>
+          <div class="field"><span>Các sheet trong file</span><div class="x-sheets" id="xSheets"></div></div>
+          <div class="x-foot">
+            <span class="muted small" id="xSummary"></span>
+            <button class="btn btn-primary" id="exportXlsx">⬇️ Xuất file Excel (.xlsx)</button>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="card">
             <h3>Sao lưu & khôi phục</h3>
-            <p class="muted small">Dữ liệu được lưu ngay trên trình duyệt của bạn. Hãy sao lưu định kỳ để không bị mất.</p>
+            <p class="muted small">Hãy sao lưu định kỳ ra file .json để luôn có một bản dự phòng.</p>
             <div class="btn-col">
               <button class="btn btn-primary" id="exportJson">⬇️ Sao lưu dữ liệu (.json)</button>
               <label class="btn btn-ghost">⬆️ Khôi phục từ file .json
                 <input type="file" id="importJson" accept=".json,application/json" hidden />
               </label>
-              <button class="btn btn-ghost" id="exportCsv">📄 Xuất Excel (.csv)</button>
             </div>
           </div>
           <div class="card">

@@ -322,6 +322,16 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .fc-db b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .fc-db-empty { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
 
+/* ---------- Xuất Excel ---------- */
+#exportCard { display: flex; flex-direction: column; gap: 14px; }
+#exportCard h3, #exportCard p { margin: 0; }
+.x-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 12px; align-items: end; }
+.x-custom { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.x-sheets { display: flex; flex-wrap: wrap; gap: 8px; }
+.x-check { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); font-size: .86rem; font-weight: 600; cursor: pointer; }
+.x-check input { accent-color: var(--primary); width: 16px; height: 16px; }
+.x-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
 /* ---------- Settings ---------- */
 .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-notes { display: flex; flex-direction: column; gap: 8px; }
@@ -450,5 +460,7 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   .budget-total { grid-template-columns: 1fr 1fr; }
   .budget-list { grid-template-columns: 1fr; }
   .fc-db b { font-size: .98rem; }
+  .x-grid { grid-template-columns: minmax(0, 1fr); }
+  .x-foot .btn { width: 100%; }
   .modal { padding: 16px; }
 }

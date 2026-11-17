@@ -3,12 +3,13 @@
 
 Cách dùng: python3 tools/build_artifact.py <file-đầu-ra.html>
 Trang đầu ra không có thẻ <html>/<head>/<body> (trình đăng tự thêm), CSS và JS được nhúng
-trực tiếp, Chart.js nạp từ CDN jsDelivr (CDN được phép trên claude.ai).
+trực tiếp, Chart.js và SheetJS (xuất Excel) nạp từ CDN được phép trên claude.ai.
 """
 import pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CHART_CDN = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js'
+XLSX_CDN = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.mini.min.js'
 
 html = (ROOT / 'index.html').read_text(encoding='utf-8')
 css = (ROOT / 'css/style.css').read_text(encoding='utf-8')
@@ -25,6 +26,7 @@ out = f'''<title>Sổ Thu Chi</title>
 </style>
 {body}
 <script src="{CHART_CDN}"></script>
+<script src="{XLSX_CDN}"></script>
 <script>
 {js.replace("</script", "<\\/script")}
 </script>
