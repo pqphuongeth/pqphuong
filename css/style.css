@@ -293,6 +293,12 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 
 /* ---------- Settings ---------- */
 .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-notes { display: flex; flex-direction: column; gap: 8px; }
+.cat-note { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 12px; background: var(--surface-2); }
+.cat-note-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0; font-size: 1.05rem; }
+.cat-note-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: .88rem; }
+.cat-note-input { padding: 6px 10px; font-size: .84rem; }
+.cat-note-text { display: block; font-size: .78rem; color: var(--muted); font-style: italic; }
 .chip { padding: 6px 12px; border-radius: 99px; background: var(--surface-2); border: 1px solid var(--border); font-size: .86rem; font-weight: 500; }
 
 /* ---------- Modal ---------- */

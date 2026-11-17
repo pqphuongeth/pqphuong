@@ -56,6 +56,7 @@
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
   // Khoản đã bỏ khỏi danh sách: chuyển dữ liệu cũ sang khoản gần nhất
   const LEGACY_CAT = { diennuoc: 'nhao' };
+  const catNote = c => (state && state.catNotes && c.id in state.catNotes ? state.catNotes[c.id] : c.desc || '');
   const migrateTx = t => (LEGACY_CAT[t.cat] ? { ...t, cat: LEGACY_CAT[t.cat] } : t);
 
   // ---------------- LƯU TRỮ ----------------
@@ -75,12 +76,12 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {} };
+    return { transactions: [], budgets: {}, catNotes: {} };
   }
   function cloudDocs() {
-    const docs = { meta: JSON.stringify({ budgets: state.budgets }) };
+    const docs = { meta: JSON.stringify({ budgets: state.budgets, catNotes: state.catNotes }) };
     const byMonth = {};
     for (const t of state.transactions) (byMonth['m-' + t.date.slice(0, 7)] ||= []).push(t);
     for (const [k, list] of Object.entries(byMonth)) docs[k] = JSON.stringify({ tx: list.slice().sort((a, b) => a.id.localeCompare(b.id)) });
@@ -116,19 +117,19 @@
     if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
     cloud = { db, base: 'data/users/' + id };
     storageMode = 'cloud';
-    state = { transactions: [], budgets: {} };
+    state = { transactions: [], budgets: {}, catNotes: {} };
     renderCurrent();
     let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
     db.collection(cloud.base).onSnapshot(snap => {
       const tx = [];
-      let budgets = {};
+      let budgets = {}, catNotes = {};
       for (const d of snap.docs) {
         const body = d.data() || {};
-        synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {} }) : JSON.stringify({ tx: body.tx || [] });
-        if (d.id === 'meta') budgets = { ...(body.budgets || {}) };
+        synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {}, catNotes: body.catNotes || {} }) : JSON.stringify({ tx: body.tx || [] });
+        if (d.id === 'meta') { budgets = { ...(body.budgets || {}) }; catNotes = { ...(body.catNotes || {}) }; }
         else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
-      state = { transactions: tx, budgets };
+      state = { transactions: tx, budgets, catNotes };
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
       renderCurrent();
     }, () => {
@@ -551,7 +552,7 @@
       const s2 = limit ? budgetStatus(pp) : { cls: 'none', text: 'Chưa đặt', color: cssVar('--muted') };
       return `<div class="card budget-item">
         <div class="top"><div class="tx-ico" style="background:${c.color}22">${c.icon}</div>
-          <div class="t"><b>${esc(c.name)}</b><span class="muted small">Đã chi ${money(spent)}</span></div>
+          <div class="t"><b>${esc(c.name)}</b>${catNote(c) ? `<span class="cat-note-text">${esc(catNote(c))}</span>` : ''}<span class="muted small">Đã chi ${money(spent)}</span></div>
           <span class="badge ${s2.cls}">${s2.text}</span></div>
         <div class="bar thick"><i style="width:${limit ? Math.min(pp, 100) : 0}%;background:${s2.color}"></i></div>
         <div class="meta"><span>${limit ? (limit - spent >= 0 ? `Còn ${money(limit - spent)}` : `Vượt ${money(spent - limit)}`) : 'Không giới hạn'}</span></div>
@@ -563,10 +564,15 @@
 
   // ---------------- CÀI ĐẶT ----------------
   function renderSettings() {
-    const chips = cats => cats.map(c => `<span class="chip">${c.icon} ${esc(c.name)}${c.desc ? ` <small class="muted">(${esc(c.desc)})</small>` : ''}</span>`).join('');
-    $('#incomeCatList').innerHTML = chips(INCOME_CATS);
-    $('#expenseCatList').innerHTML = chips(EXPENSE_CATS);
-    $('#investCatList').innerHTML = chips(INVEST_CATS);
+    // Đang gõ ghi chú thì không vẽ lại để không mất chữ
+    if (document.activeElement && document.activeElement.classList.contains('cat-note-input')) return;
+    const rows = cats => cats.map(c => `<label class="cat-note" for="note-${c.id}">
+      <span class="cat-note-ico" style="background:${c.color}22">${c.icon}</span>
+      <span class="cat-note-body"><b>${esc(c.name)}</b>
+      <input class="input cat-note-input" id="note-${c.id}" data-cat="${c.id}" maxlength="200" placeholder="Thêm ghi chú…" value="${esc(catNote(c))}" /></span></label>`).join('');
+    $('#incomeCatList').innerHTML = rows(INCOME_CATS);
+    $('#expenseCatList').innerHTML = rows(EXPENSE_CATS);
+    $('#investCatList').innerHTML = rows(INVEST_CATS);
     $('#incomeCatTitle').textContent = `${INCOME_CATS.length} khoản thu nhập`;
     $('#expenseCatTitle').textContent = `${EXPENSE_CATS.length} khoản chi tiêu`;
     $('#investCatTitle').textContent = `${INVEST_CATS.length} khoản đầu tư`;
@@ -669,9 +675,9 @@
     $$('#dirToggle button').forEach(b => b.classList.toggle('active', b.dataset.dir === mDir));
     const cats = CATS_BY_TYPE[mType];
     if (!cats.some(c => c.id === mCat)) mCat = cats[0].id;
-    $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(c.desc || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
+    $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(catNote(c) || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
     const sel = catOf(mCat);
-    $('#catHint').textContent = sel.desc ? `${sel.icon} ${sel.name}: ${sel.desc}` : '';
+    $('#catHint').textContent = catNote(sel) ? `📝 ${sel.name}: ${catNote(sel)}` : '';
   }
   function saveTx(e) {
     e.preventDefault();
@@ -800,7 +806,7 @@
       try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
       applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets }, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes }, null, 2), 'application/json'));
     $('#exportCsv').addEventListener('click', exportCsv);
     $('#importJson').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
@@ -815,6 +821,7 @@
           if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
+          if (d.catNotes && typeof d.catNotes === 'object') state.catNotes = Object.fromEntries(Object.entries(d.catNotes).filter(([k, v]) => CAT_MAP[k] && typeof v === 'string').map(([k, v]) => [k, v.slice(0, 200)]));
           save(); renderCurrent(); toast('✅ Đã khôi phục dữ liệu');
         } catch (err) { toast('❌ File không hợp lệ'); }
         e.target.value = '';
@@ -822,6 +829,14 @@
       reader.readAsText(f);
     });
     $('#loadSample').addEventListener('click', loadSample);
+    $('#view-settings').addEventListener('change', e => {
+      if (!e.target.classList.contains('cat-note-input')) return;
+      const c = catOf(e.target.dataset.cat), v = e.target.value.trim();
+      if (v === catNote(c)) return;
+      state.catNotes = { ...state.catNotes, [c.id]: v };
+      save(); toast(`📝 Đã lưu ghi chú: ${c.name}`);
+    });
+    $('#view-settings').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cat-note-input')) e.target.blur(); });
     $('#clearAll').addEventListener('click', async () => {
       if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
       state.transactions = []; state.budgets = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
