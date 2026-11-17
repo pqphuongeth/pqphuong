@@ -337,7 +337,7 @@ def main():
     ap.add_argument('--date')
     ap.add_argument('--html'); ap.add_argument('--text'); ap.add_argument('--title-url')
     a = ap.parse_args()
-    day = D(a.date) if a.date else (datetime.datetime.utcnow() + datetime.timedelta(hours=7)).date()
+    day = D(a.date) if a.date else (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=7)).date()
     tx, forecast, debts, budgets, notes = load(a.data)
     if a.text:
         t = text_day(tx, forecast, debts, budgets, day) if a.mode == 'day' else text_period(a.mode, tx, forecast, debts, budgets, day, a.title_url)
