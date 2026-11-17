@@ -14,6 +14,7 @@ Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài 
 | **Tổng quan** | Tổng tài sản (tiền mặt + đang đầu tư), thu/chi/đầu tư/tiền mặt còn lại tháng này, danh mục đầu tư, tỷ lệ tiết kiệm, so sánh với tháng trước, biểu đồ 6 tháng, cơ cấu chi tiêu, cảnh báo ngân sách, giao dịch gần đây |
 | **Giao dịch** | Sổ ghi chép nhóm theo ngày; tìm kiếm, lọc theo loại (thu / chi / đầu tư) / danh mục / khoảng ngày; bấm vào dòng để sửa, xóa |
 | **Thống kê** | Theo **Ngày / Tuần / Tháng / Quý / Năm**, chuyển kỳ trước/sau; tổng thu, tổng chi, đầu tư, tiền mặt còn lại, chi trung bình/ngày, % thay đổi so với kỳ trước; biểu đồ cột diễn biến và biểu đồ tròn + bảng xếp hạng theo danh mục |
+| **Dòng tiền** | Kế hoạch tiền về / chi ra cho từng tháng (mặc định tháng tới). Tiền về: Lương, Hoa hồng từ bán hàng (công ty), Hoa hồng quản lý (công ty), Hoa hồng khác 1, Hoa hồng khác 2, Thu nhập khác. Chi ra: Trả ngân hàng, Thanh toán tiền mua BĐS, Khoản chi khác 1–3 (các khoản "khác" đổi tên được). Mỗi dòng có số tiền, ngày dự kiến, ghi chú và nút **Ghi vào sổ** tạo giao dịch thật (bấm lại để hoàn tác). Có tổng, chênh lệch, tiền mặt dự kiến và nút sao chép kế hoạch tháng trước |
 | **Ngân sách** | Đặt hạn mức tháng cho từng khoản chi, thanh tiến độ màu xanh / vàng (≥80%) / đỏ (vượt), tự cảnh báo khi nhập khoản chi vượt hạn mức |
 | **Cài đặt** | Sao lưu / khôi phục (.json), xuất Excel (.csv), dữ liệu mẫu, xóa dữ liệu, giao diện sáng/tối |
 

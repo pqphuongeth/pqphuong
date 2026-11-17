@@ -76,15 +76,16 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {}, catNotes: {} };
+    return { transactions: [], budgets: {}, catNotes: {}, forecast: {} };
   }
   function cloudDocs() {
     const docs = { meta: JSON.stringify({ budgets: state.budgets, catNotes: state.catNotes }) };
     const byMonth = {};
     for (const t of state.transactions) (byMonth['m-' + t.date.slice(0, 7)] ||= []).push(t);
     for (const [k, list] of Object.entries(byMonth)) docs[k] = JSON.stringify({ tx: list.slice().sort((a, b) => a.id.localeCompare(b.id)) });
+    for (const [k, f] of Object.entries(state.forecast || {})) if (fcHasData(f)) docs['f-' + k] = JSON.stringify(f);
     return docs;
   }
   function queueWrite(id, body) {
@@ -117,19 +118,20 @@
     if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
     cloud = { db, base: 'data/users/' + id };
     storageMode = 'cloud';
-    state = { transactions: [], budgets: {}, catNotes: {} };
+    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {} };
     renderCurrent();
     let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
     db.collection(cloud.base).onSnapshot(snap => {
       const tx = [];
-      let budgets = {}, catNotes = {};
+      let budgets = {}, catNotes = {}; const forecast = {};
       for (const d of snap.docs) {
         const body = d.data() || {};
+        if (d.id.startsWith('f-')) { forecast[d.id.slice(2)] = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {}, catNotes: body.catNotes || {} }) : JSON.stringify({ tx: body.tx || [] });
         if (d.id === 'meta') { budgets = { ...(body.budgets || {}) }; catNotes = { ...(body.catNotes || {}) }; }
         else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
-      state = { transactions: tx, budgets, catNotes };
+      state = { transactions: tx, budgets, catNotes, forecast };
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
       renderCurrent();
     }, () => {
@@ -249,7 +251,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
   }
 
-  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', budgets: 'Ngân sách', settings: 'Cài đặt' };
+  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', forecast: 'Dòng tiền dự kiến', budgets: 'Ngân sách', settings: 'Cài đặt' };
   let currentView = 'dashboard';
   function showView(v) {
     currentView = v;
@@ -260,7 +262,7 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function renderCurrent() {
-    ({ dashboard: renderDashboard, transactions: renderTransactions, reports: renderReports, budgets: renderBudgets, settings: renderSettings })[currentView]();
+    ({ dashboard: renderDashboard, transactions: renderTransactions, reports: renderReports, forecast: renderForecast, budgets: renderBudgets, settings: renderSettings })[currentView]();
   }
 
   function statCard(icon, cls, label, value, delta) {
@@ -403,6 +405,7 @@
     drawPie('dbPieChart', 'dbPieEmpty', cur.byCat, EXPENSE_CATS);
     $('#dbPieTable').innerHTML = catTable(cur.byCat, EXPENSE_CATS, cur.expense, 5);
     renderPortfolio(all);
+    renderDbForecast();
 
     // Cảnh báo ngân sách
     const alerts = EXPENSE_CATS.filter(c => state.budgets[c.id] > 0)
@@ -560,6 +563,160 @@
           <input class="input budget-input" data-cat="${c.id}" inputmode="numeric" placeholder="Không giới hạn" value="${limit ? nf.format(limit) : ''}" /></div>
       </div>`;
     }).join('');
+  }
+
+  // ---------------- DÒNG TIỀN DỰ KIẾN ----------------
+  // Mỗi tháng: { in: {k: dòng}, out: {k: dòng} }, dòng = { amount, date, note, label, done, txId }
+  // "Ghi vào sổ" tạo giao dịch thật theo hạng mục tương ứng và đánh dấu đã về / đã chi.
+  const FC_LINES = {
+    in: [
+      { k: 'luong', name: 'Lương', cat: 'luong' },
+      { k: 'hhban', name: 'Hoa hồng từ bán hàng (công ty)', cat: 'hoahong' },
+      { k: 'hhql',  name: 'Hoa hồng quản lý (công ty)', cat: 'hoahong' },
+      { k: 'hh1',   name: 'Hoa hồng khác 1', cat: 'hoahong', editable: true },
+      { k: 'hh2',   name: 'Hoa hồng khác 2', cat: 'hoahong', editable: true },
+      { k: 'khac',  name: 'Thu nhập khác', cat: 'thukhac' },
+    ],
+    out: [
+      { k: 'nganhang', name: 'Trả ngân hàng', cat: 'trano' },
+      { k: 'bds',      name: 'Thanh toán tiền mua BĐS', cat: 'trabds' },
+      { k: 'c1',       name: 'Khoản chi khác 1', cat: 'chikhac', editable: true },
+      { k: 'c2',       name: 'Khoản chi khác 2', cat: 'chikhac', editable: true },
+      { k: 'c3',       name: 'Khoản chi khác 3', cat: 'chikhac', editable: true },
+    ],
+  };
+  const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  const fcHasData = f => f && ['in', 'out'].some(side => Object.values(f[side] || {}).some(l => l && (l.amount || l.note || l.label || l.date)));
+  const fcMonth = key => state.forecast[key] || { in: {}, out: {} };
+  const fcLine = (key, side, k) => (fcMonth(key)[side] || {})[k] || {};
+  const fcName = (def, line) => line.label || def.name;
+  function fcTotals(key) {
+    const r = { in: 0, out: 0, inPending: 0, outPending: 0, inDone: 0, outDone: 0 };
+    for (const side of ['in', 'out']) for (const def of FC_LINES[side]) {
+      const l = fcLine(key, side, def.k), a = Number(l.amount) || 0;
+      r[side] += a; if (l.done) r[side + 'Done'] += a; else r[side + 'Pending'] += a;
+    }
+    return r;
+  }
+  function setFcLine(key, side, k, patch) {
+    const f = JSON.parse(JSON.stringify(fcMonth(key)));
+    f[side] = f[side] || {};
+    f[side][k] = { ...(f[side][k] || {}), ...patch };
+    for (const [pk, pv] of Object.entries(f[side][k])) if (pv === '' || pv === 0 || pv === false || pv == null) delete f[side][k][pk];
+    if (!Object.keys(f[side][k]).length) delete f[side][k];
+    state.forecast = { ...state.forecast, [key]: f };
+    if (!fcHasData(f) && !Object.values(f.in || {}).length && !Object.values(f.out || {}).length) { const n = { ...state.forecast }; delete n[key]; state.forecast = n; }
+    save();
+  }
+
+  let fcAnchor = new Date(today().getFullYear(), today().getMonth() + 1, 1);
+  const fcKeyNow = () => monthKey(fcAnchor);
+
+  function fcRow(key, side, def) {
+    const l = fcLine(key, side, def.k), c = catOf(def.cat);
+    const doneText = side === 'in' ? 'Đã về' : 'Đã chi';
+    return `<div class="fc-row ${l.done ? 'done' : ''}" data-side="${side}" data-k="${def.k}">
+      <div class="fc-name">
+        ${def.editable ? `<input class="input fc-label" id="fc-${side}-${def.k}-label" maxlength="60" placeholder="${esc(def.name)}" value="${esc(l.label || '')}" aria-label="Tên khoản" />` : `<b>${esc(def.name)}</b>`}
+        <small class="muted">Ghi sổ vào: ${c.icon} ${esc(c.name)}</small>
+      </div>
+      <label class="fc-cell"><span>Số tiền (₫)</span><input class="input fc-amount" id="fc-${side}-${def.k}-amount" inputmode="numeric" placeholder="0" value="${l.amount ? nf.format(l.amount) : ''}" ${l.done ? 'disabled' : ''} /></label>
+      <label class="fc-cell"><span>Ngày dự kiến</span><input type="date" class="input fc-date" id="fc-${side}-${def.k}-date" value="${esc(l.date || '')}" ${l.done ? 'disabled' : ''} /></label>
+      <label class="fc-cell fc-note-cell"><span>Ghi chú</span><input class="input fc-note" id="fc-${side}-${def.k}-note" maxlength="120" placeholder="Ghi chú…" value="${esc(l.note || '')}" /></label>
+      <button type="button" class="fc-status ${l.done ? 'is-done' : ''} ${side}" data-fc-status>${l.done ? `✅ ${doneText}` : '📥 Ghi vào sổ'}</button>
+    </div>`;
+  }
+  function renderForecast() {
+    const key = fcKeyNow();
+    $('#fcLabel').textContent = `Tháng ${fcAnchor.getMonth() + 1}/${fcAnchor.getFullYear()}`;
+    renderFcSummary();
+    // Đang gõ trong bảng thì không vẽ lại các dòng để không mất chữ
+    const ae = document.activeElement;
+    if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row')) return;
+    for (const side of ['in', 'out']) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
+  }
+  function renderFcSummary() {
+    const key = fcKeyNow(), t = fcTotals(key);
+    const all = sumRange('0000-00-00', '9999-12-31');
+    const net = t.in - t.out;
+    const projected = all.cash + t.inPending - t.outPending;
+    $('#fcStats').innerHTML =
+      statCard('📥', 'ico-income', 'Dự kiến tiền về', money(t.in), { cls: 'muted', text: `Đã về ${money(t.inDone)} • Còn chờ ${money(t.inPending)}` }) +
+      statCard('📤', 'ico-expense', 'Dự kiến chi ra', money(t.out), { cls: 'muted', text: `Đã chi ${money(t.outDone)} • Còn phải chi ${money(t.outPending)}` }) +
+      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: net >= 0 ? 'Dư tiền trong tháng' : 'Thiếu tiền, cần cân đối' }) +
+      statCard('💵', 'ico-warn', 'Tiền mặt sau khi thu/chi hết', money(projected), { cls: projected >= 0 ? 'muted' : 'up-bad', text: `Tiền mặt hiện có ${money(all.cash)}` });
+    const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
+    $('#fcTotal-in').innerHTML = `<span>Tổng dự kiến về</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
+    $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
+  }
+  function renderDbForecast() {
+    const d = new Date(today().getFullYear(), today().getMonth() + 1, 1), key = monthKey(d), t = fcTotals(key);
+    const el = $('#dbForecast');
+    if (!t.in && !t.out) {
+      el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập dòng tiền dự kiến cho tháng ${d.getMonth() + 1}/${d.getFullYear()}.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="fc-db">
+      <div><span class="muted small">Dự kiến về</span><b class="income-text">${money(t.in)}</b></div>
+      <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
+      <div><span class="muted small">Chênh lệch</span><b class="${t.in - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in - t.out)}</b></div>
+    </div>`;
+  }
+  async function fcToggleDone(side, k) {
+    const key = fcKeyNow(), def = FC_LINES[side].find(x => x.k === k), l = fcLine(key, side, k), c = catOf(def.cat);
+    if (l.done) {
+      if (!await askConfirm('Hoàn tác: xóa giao dịch đã ghi vào sổ và đánh dấu lại là chưa thực hiện?', 'Hoàn tác')) return;
+      if (l.txId) state.transactions = state.transactions.filter(t => t.id !== l.txId);
+      setFcLine(key, side, k, { done: false, txId: '' });
+      renderCurrent(); toast('↩️ Đã hoàn tác');
+      return;
+    }
+    if (!(l.amount > 0)) { toast('Nhập số tiền trước khi ghi vào sổ'); return; }
+    const date = l.date || keyOf(today());
+    if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?`, 'Ghi vào sổ')) return;
+    const tx = { id: uid(), createdAt: Date.now(), type: side === 'in' ? 'income' : 'expense', cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
+    state.transactions.push(tx);
+    setFcLine(key, side, k, { done: true, txId: tx.id, date });
+    renderCurrent(); toast(`✅ Đã ghi ${side === 'in' ? 'khoản thu' : 'khoản chi'} ${money(l.amount)} vào sổ`);
+  }
+  async function fcCopyPrev() {
+    const key = fcKeyNow(), prevD = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1), prev = fcMonth(monthKey(prevD));
+    if (!fcHasData(prev)) { toast(`Tháng ${prevD.getMonth() + 1} chưa có kế hoạch để sao chép`); return; }
+    if (fcHasData(fcMonth(key)) && !await askConfirm('Thay kế hoạch tháng này bằng bản sao của tháng trước?', 'Sao chép')) return;
+    const shift = ds => { if (!ds) return ''; const d = parseKey(ds); const last = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 0).getDate(); return keyOf(new Date(fcAnchor.getFullYear(), fcAnchor.getMonth(), Math.min(d.getDate(), last))); };
+    const f = { in: {}, out: {} };
+    for (const side of ['in', 'out']) for (const [k, l] of Object.entries(prev[side] || {})) {
+      const n = { amount: l.amount, date: shift(l.date), note: l.note, label: l.label };
+      Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
+      if (Object.keys(n).length) f[side][k] = n;
+    }
+    state.forecast = { ...state.forecast, [key]: f };
+    save(); renderForecast(); toast(`📋 Đã sao chép kế hoạch tháng ${prevD.getMonth() + 1}`);
+  }
+  function bindForecast() {
+    const view = $('#view-forecast');
+    $('#fcPrev').addEventListener('click', () => { fcAnchor = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1); renderForecast(); });
+    $('#fcNext').addEventListener('click', () => { fcAnchor = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 1); renderForecast(); });
+    $('#fcCopy').addEventListener('click', fcCopyPrev);
+    view.addEventListener('input', e => {
+      if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
+    });
+    view.addEventListener('change', e => {
+      const row = e.target.closest('.fc-row'); if (!row) return;
+      const { side, k } = row.dataset, cls = e.target.classList;
+      const patch = cls.contains('fc-amount') ? { amount: parseAmount(e.target.value) }
+        : cls.contains('fc-date') ? { date: e.target.value }
+        : cls.contains('fc-note') ? { note: e.target.value.trim() }
+        : cls.contains('fc-label') ? { label: e.target.value.trim() } : null;
+      if (!patch) return;
+      setFcLine(fcKeyNow(), side, k, patch);
+      renderFcSummary();
+    });
+    view.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest('.fc-row') && e.target.tagName === 'INPUT') e.target.blur(); });
+    view.addEventListener('click', e => {
+      const b = e.target.closest('[data-fc-status]'); if (!b) return;
+      const row = b.closest('.fc-row'); fcToggleDone(row.dataset.side, row.dataset.k);
+    });
   }
 
   // ---------------- CÀI ĐẶT ----------------
@@ -806,7 +963,7 @@
       try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
       applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes }, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast }, null, 2), 'application/json'));
     $('#exportCsv').addEventListener('click', exportCsv);
     $('#importJson').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
@@ -822,6 +979,18 @@
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
           if (d.catNotes && typeof d.catNotes === 'object') state.catNotes = Object.fromEntries(Object.entries(d.catNotes).filter(([k, v]) => CAT_MAP[k] && typeof v === 'string').map(([k, v]) => [k, v.slice(0, 200)]));
+          state.forecast = {};
+          if (d.forecast && typeof d.forecast === 'object') for (const [k, f] of Object.entries(d.forecast)) {
+            if (!/^\d{4}-\d{2}$/.test(k) || !f || typeof f !== 'object') continue;
+            const clean = { in: {}, out: {} };
+            for (const side of ['in', 'out']) for (const def of FC_LINES[side]) {
+              const l = f[side] && f[side][def.k]; if (!l || typeof l !== 'object') continue;
+              const n = { amount: Number(l.amount) > 0 ? Number(l.amount) : 0, date: /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : '', note: String(l.note || '').slice(0, 120), label: String(l.label || '').slice(0, 60), done: !!l.done, txId: String(l.txId || '') };
+              Object.keys(n).forEach(x => { if (!n[x]) delete n[x]; });
+              if (Object.keys(n).length) clean[side][def.k] = n;
+            }
+            if (fcHasData(clean)) state.forecast[k] = clean;
+          }
           save(); renderCurrent(); toast('✅ Đã khôi phục dữ liệu');
         } catch (err) { toast('❌ File không hợp lệ'); }
         e.target.value = '';
@@ -829,6 +998,7 @@
       reader.readAsText(f);
     });
     $('#loadSample').addEventListener('click', loadSample);
+    bindForecast();
     $('#view-settings').addEventListener('change', e => {
       if (!e.target.classList.contains('cat-note-input')) return;
       const c = catOf(e.target.dataset.cat), v = e.target.value.trim();
@@ -839,7 +1009,7 @@
     $('#view-settings').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cat-note-input')) e.target.blur(); });
     $('#clearAll').addEventListener('click', async () => {
       if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
-      state.transactions = []; state.budgets = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
+      state.transactions = []; state.budgets = {}; state.forecast = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
     });
 
     let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderCurrent, 250); });
@@ -851,6 +1021,12 @@
   async function loadSample() {
     if (state.transactions.length && !await askConfirm('Dữ liệu mẫu sẽ THAY THẾ dữ liệu hiện tại. Tiếp tục?', 'Nạp dữ liệu mẫu')) return;
     state.transactions = sampleData();
+    const nk = monthKey(new Date(today().getFullYear(), today().getMonth() + 1, 1));
+    const nd = n => `${nk}-${pad(n)}`;
+    state.forecast = { [nk]: {
+      in: { luong: { amount: 27000000, date: nd(5) }, hhban: { amount: 15000000, date: nd(10), note: 'Dự án căn hộ, chờ công ty duyệt' }, hhql: { amount: 5000000, date: nd(15) }, hh1: { label: 'Hoa hồng giới thiệu khách', amount: 3000000, date: nd(20) } },
+      out: { nganhang: { amount: 12000000, date: nd(25), note: 'Gốc + lãi vay mua nhà' }, bds: { amount: 20000000, date: nd(28), note: 'Đợt 3 hợp đồng mua căn hộ' }, c1: { label: 'Học phí con', amount: 4500000, date: nd(5) } },
+    } };
     state.budgets = { anuong: 4500000, dilai: 2000000, muasam: 1500000, giaitri: 1000000, tiepkhach: 2000000, lamdep: 500000 };
     save(); renderCurrent(); toast('✨ Đã nạp dữ liệu mẫu 12 tháng');
   }

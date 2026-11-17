@@ -291,6 +291,37 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .alert-row:last-child { border-bottom: 0; }
 .alert-row .t { flex: 1; min-width: 0; }
 
+/* ---------- Dòng tiền dự kiến ---------- */
+.stats-grid.stats-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fc-list { display: flex; flex-direction: column; }
+.fc-row {
+  display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr) 128px;
+  gap: 10px; align-items: end; padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.fc-row:last-child { border-bottom: 0; }
+.fc-row.done .fc-name b, .fc-row.done .fc-label { color: var(--muted); }
+.fc-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; align-self: center; }
+.fc-name small { font-size: .74rem; }
+.fc-label { padding: 7px 10px; font-weight: 600; }
+.fc-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fc-cell > span { font-size: .72rem; color: var(--muted); font-weight: 600; }
+.fc-cell .input { padding: 8px 10px; }
+.fc-amount { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.fc-status {
+  border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; padding: 9px 12px;
+  font-weight: 700; font-size: .82rem; cursor: pointer; white-space: nowrap; text-align: center;
+}
+.fc-status:hover { border-color: var(--primary); color: var(--primary); }
+.fc-status.is-done.in { background: var(--income-soft); color: var(--income); border-color: transparent; }
+.fc-status.is-done.out { background: var(--expense-soft); color: var(--expense); border-color: transparent; }
+.fc-total { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--border); }
+.fc-total b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.fc-total .bar { grid-column: 1 / -1; }
+.fc-db { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fc-db > div { display: flex; flex-direction: column; }
+.fc-db b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.fc-db-empty { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }
+
 /* ---------- Settings ---------- */
 .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-notes { display: flex; flex-direction: column; gap: 8px; }
@@ -372,6 +403,11 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 @media (max-width: 1100px) {
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .stats-grid.stats-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fc-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .fc-name { grid-column: 1 / -1; }
+  .fc-note-cell { grid-column: 1 / -1; }
+  .fc-status { grid-column: 1 / -1; }
   .grid-3 { grid-template-columns: minmax(0, 1fr); }
   .filters { grid-template-columns: 1fr 1fr 1fr; }
   .budget-total { grid-template-columns: repeat(3, 1fr); }
@@ -385,7 +421,7 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   }
   .brand, .btn-add-side { display: none; }
   .nav { flex-direction: row; width: 100%; justify-content: space-around; }
-  .nav-item { flex-direction: column; gap: 2px; padding: 6px 4px; font-size: .7rem; flex: 1; align-items: center; }
+  .nav-item { flex-direction: column; gap: 2px; padding: 6px 2px; font-size: .66rem; flex: 1; align-items: center; min-width: 0; white-space: nowrap; }
   .main { padding: 16px 16px 100px; }
   .topbar h1 { font-size: 1.35rem; }
   .hide-mobile { display: none; }
@@ -413,5 +449,6 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   .field-row { grid-template-columns: 1fr; }
   .budget-total { grid-template-columns: 1fr 1fr; }
   .budget-list { grid-template-columns: 1fr; }
+  .fc-db b { font-size: .98rem; }
   .modal { padding: 16px; }
 }

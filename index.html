@@ -26,6 +26,7 @@
         <button class="nav-item active" data-view="dashboard"><span class="nav-ico">🏠</span><span>Tổng quan</span></button>
         <button class="nav-item" data-view="transactions"><span class="nav-ico">📒</span><span>Giao dịch</span></button>
         <button class="nav-item" data-view="reports"><span class="nav-ico">📊</span><span>Thống kê</span></button>
+        <button class="nav-item" data-view="forecast"><span class="nav-ico">💸</span><span>Dòng tiền</span></button>
         <button class="nav-item" data-view="budgets"><span class="nav-ico">🎯</span><span>Ngân sách</span></button>
         <button class="nav-item" data-view="settings"><span class="nav-ico">⚙️</span><span>Cài đặt</span></button>
       </nav>
@@ -60,6 +61,14 @@
         </div>
 
         <div class="stats-grid" id="dbStats"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Dòng tiền dự kiến tháng tới</h3>
+            <button class="link-btn" data-goto="forecast">Chi tiết →</button>
+          </div>
+          <div id="dbForecast"></div>
+        </div>
 
         <div class="grid-2">
           <div class="card">
@@ -178,6 +187,35 @@
       </section>
 
       <!-- ============ NGÂN SÁCH ============ -->
+      <section class="view" id="view-forecast">
+        <div class="card report-toolbar">
+          <div>
+            <h3 style="margin:0">Kế hoạch dòng tiền theo tháng</h3>
+            <div class="muted small">Nhập số tiền dự kiến về và phải chi. Khi tiền đã về hoặc đã chi, bấm “Ghi vào sổ” để tạo giao dịch thật.</div>
+          </div>
+          <div class="period-nav">
+            <button class="icon-btn" id="fcPrev" title="Tháng trước">‹</button>
+            <div class="period-label" id="fcLabel"></div>
+            <button class="icon-btn" id="fcNext" title="Tháng sau">›</button>
+            <button class="btn btn-ghost btn-sm" id="fcCopy">📋 Sao chép tháng trước</button>
+          </div>
+        </div>
+
+        <div class="stats-grid stats-4" id="fcStats"></div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="income-text">📥 Dòng tiền dự kiến về</h3></div>
+          <div class="fc-list" id="fcList-in"></div>
+          <div class="fc-total" id="fcTotal-in"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3 class="expense-text">📤 Các khoản chi ra dự kiến</h3></div>
+          <div class="fc-list" id="fcList-out"></div>
+          <div class="fc-total" id="fcTotal-out"></div>
+        </div>
+      </section>
+
       <section class="view" id="view-budgets">
         <div class="card report-toolbar">
           <div>
