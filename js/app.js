@@ -386,6 +386,7 @@
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
+    $('#dbAvgLabel').textContent = `Chi trung bình/ngày (${t.getDate()} ngày đã qua của tháng)`;
 
     const rate = cur.income ? (cur.net / cur.income * 100) : 0;
     $('#dbStats').innerHTML =
@@ -512,13 +513,19 @@
     $$('#periodTabs button').forEach(b => b.classList.toggle('active', b.dataset.period === rpType));
 
     const days = Math.round((info.end - info.start) / 864e5) + 1;
+    // Chia cho số ngày ĐÃ QUA trong kỳ (giống Tổng quan): kỳ đang diễn ra chưa hết ngày thì không chia cho cả kỳ
+    const tdy = today(), effEnd = info.end > tdy ? tdy : info.end;
+    const elapsed = effEnd < info.start ? 0 : Math.round((effEnd - info.start) / 864e5) + 1;
     const rate = cur.income ? cur.net / cur.income * 100 : 0;
     $('#rpStats').innerHTML =
       statCard('⬆️', 'ico-income', 'Tổng thu', money(cur.income), deltaInfo(cur.income, prev.income, true, pn)) +
       statCard('⬇️', 'ico-expense', 'Tổng chi', money(cur.expense), deltaInfo(cur.expense, prev.expense, false, pn)) +
       statCard('📊', 'ico-invest', 'Đầu tư (rót − rút)', money(cur.invest), deltaInfo(cur.invest, prev.invest, true, pn)) +
       statCard('💵', 'ico-primary', 'Tiền mặt còn lại', money(cur.cash), { cls: cur.cash >= 0 ? 'up-good' : 'up-bad', text: cur.income ? `Tiết kiệm & đầu tư ${rate.toFixed(1)}% thu nhập` : `${cur.count} giao dịch` }) +
-      statCard('📅', 'ico-warn', days > 1 ? 'Chi trung bình / ngày' : 'Số giao dịch', days > 1 ? money(cur.expense / days) : String(cur.count), days > 1 ? { cls: 'muted', text: `${cur.count} giao dịch trong kỳ` } : null);
+      (days > 1
+        ? statCard('📅', 'ico-warn', 'Chi trung bình / ngày', elapsed ? money(cur.expense / elapsed) : '—',
+            { cls: 'muted', text: elapsed ? `Chia cho ${elapsed}${elapsed < days ? `/${days}` : ''} ngày đã qua · ${cur.count} giao dịch` : 'Kỳ này chưa bắt đầu' })
+        : statCard('📅', 'ico-warn', 'Số giao dịch', String(cur.count), null));
 
     $('#rpTrendTitle').textContent = info.trendTitle;
     const inc = [], exp = [], inv = [];
