@@ -627,8 +627,15 @@
     save();
   }
 
-  let fcAnchor = new Date(today().getFullYear(), today().getMonth() + 1, 1);
-  const fcKeyNow = () => monthKey(fcAnchor);
+  // Tháng mặc định: tháng này nếu còn khoản chưa nhận / chưa thu / chưa chi, ngược lại là tháng tới.
+  // Tính lại mỗi lần vẽ cho tới khi người dùng tự chuyển tháng (dữ liệu tài khoản tải về sau khi mở trang).
+  let fcPicked = null;
+  const fcDefaultMonth = () => {
+    const t = today(), cur = new Date(t.getFullYear(), t.getMonth(), 1), tt = fcTotals(monthKey(cur));
+    return tt.inPending + tt.debtPending + tt.outPending > 0 ? cur : new Date(t.getFullYear(), t.getMonth() + 1, 1);
+  };
+  const fcA = () => fcPicked || fcDefaultMonth();
+  const fcKeyNow = () => monthKey(fcA());
 
   function fcRow(key, side, def) {
     const l = fcLine(key, side, def.k), c = catOf(def.cat);
@@ -646,6 +653,7 @@
   }
   function renderForecast() {
     const key = fcKeyNow();
+    const fcAnchor = fcA();
     $('#fcLabel').textContent = `Tháng ${fcAnchor.getMonth() + 1}/${fcAnchor.getFullYear()}`;
     renderFcSummary();
     // Đang gõ trong bảng thì không vẽ lại các dòng để không mất chữ
@@ -669,19 +677,23 @@
     $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b>${bar(t.debtDone, t.debt, 'invest')}`;
     $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
+  // Ô trên Tổng quan: tháng này và tháng tới (tháng nào có kế hoạch thì hiện)
   function renderDbForecast() {
-    const d = new Date(today().getFullYear(), today().getMonth() + 1, 1), key = monthKey(d), t = fcTotals(key);
-    const el = $('#dbForecast');
-    if (!t.in && !t.out && !t.debt) {
-      el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập dòng tiền dự kiến cho tháng ${d.getMonth() + 1}/${d.getFullYear()}.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
+    const t0 = today(), el = $('#dbForecast');
+    const months = [0, 1].map(i => new Date(t0.getFullYear(), t0.getMonth() + i, 1))
+      .map(d => ({ d, key: monthKey(d), t: fcTotals(monthKey(d)) })).filter(x => x.t.in || x.t.out || x.t.debt);
+    if (!months.length) {
+      el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập kế hoạch dòng tiền cho tháng này và tháng tới.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
       return;
     }
-    el.innerHTML = `<div class="fc-db">
-      <div><span class="muted small">Tới hạn nhận</span><b class="income-text">${money(t.in)}</b></div>
-      <div><span class="muted small">Công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b></div>
-      <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
-      <div><span class="muted small">Chênh lệch</span><b class="${t.in + t.debt - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in + t.debt - t.out)}</b></div>
-    </div>`;
+    el.innerHTML = months.map(({ d, key, t }) => `<div class="fc-db-month">
+      <div class="fc-db-head"><b>Tháng ${d.getMonth() + 1}/${d.getFullYear()}</b><button class="link-btn" data-fc-open="${key}">Mở →</button></div>
+      <div class="fc-db">
+        <div><span class="muted small">Tới hạn nhận</span><b class="income-text">${money(t.in)}</b></div>
+        <div><span class="muted small">Công nợ phải thu</span><b class="invest-text">${money(t.debt)}</b></div>
+        <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
+        <div><span class="muted small">Chênh lệch</span><b class="${t.in + t.debt - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in + t.debt - t.out)}</b></div>
+      </div></div>`).join('');
   }
   async function fcToggleDone(side, k) {
     const key = fcKeyNow(), def = FC_LINES[side].find(x => x.k === k), l = fcLine(key, side, k), c = catOf(def.cat);
@@ -701,7 +713,7 @@
     renderCurrent(); toast(`✅ Đã ghi ${FC_TEXT[side].word} ${money(l.amount)} vào sổ`);
   }
   async function fcCopyPrev() {
-    const key = fcKeyNow(), prevD = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1), prev = fcMonth(monthKey(prevD));
+    const fcAnchor = fcA(), key = fcKeyNow(), prevD = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1), prev = fcMonth(monthKey(prevD));
     if (!fcHasData(prev)) { toast(`Tháng ${prevD.getMonth() + 1} chưa có kế hoạch để sao chép`); return; }
     if (fcHasData(fcMonth(key)) && !await askConfirm('Thay kế hoạch tháng này bằng bản sao của tháng trước?', 'Sao chép')) return;
     const shift = ds => { if (!ds) return ''; const d = parseKey(ds); const last = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 0).getDate(); return keyOf(new Date(fcAnchor.getFullYear(), fcAnchor.getMonth(), Math.min(d.getDate(), last))); };
@@ -717,8 +729,12 @@
   }
   function bindForecast() {
     const view = $('#view-forecast');
-    $('#fcPrev').addEventListener('click', () => { fcAnchor = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() - 1, 1); renderForecast(); });
-    $('#fcNext').addEventListener('click', () => { fcAnchor = new Date(fcAnchor.getFullYear(), fcAnchor.getMonth() + 1, 1); renderForecast(); });
+    $('#fcPrev').addEventListener('click', () => { const a = fcA(); fcPicked = new Date(a.getFullYear(), a.getMonth() - 1, 1); renderForecast(); });
+    $('#fcNext').addEventListener('click', () => { const a = fcA(); fcPicked = new Date(a.getFullYear(), a.getMonth() + 1, 1); renderForecast(); });
+    document.addEventListener('click', e => {
+      const b = e.target.closest('[data-fc-open]'); if (!b) return;
+      const [y, m] = b.dataset.fcOpen.split('-').map(Number); fcPicked = new Date(y, m - 1, 1); showView('forecast');
+    });
     $('#fcCopy').addEventListener('click', fcCopyPrev);
     view.addEventListener('input', e => {
       if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
