@@ -18,13 +18,13 @@ Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài 
 | **Cài đặt** | Sao lưu / khôi phục (.json), xuất Excel (.csv), dữ liệu mẫu, xóa dữ liệu, giao diện sáng/tối |
 
 ### 10 khoản thu nhập
-Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng · Được tặng / Lì xì · Thu nhập khác
+Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng từ bán hàng · Được tặng / Lì xì · Thu nhập khác
 
-### 15 khoản chi tiêu
-Ăn uống · Nhà ở / Thuê nhà · Điện, nước, gas · Đi lại / Xăng xe · Mua sắm · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Điện thoại / Internet · Bảo hiểm · Con cái · Hiếu hỉ / Biếu tặng · Làm đẹp / Thể thao · Trả nợ / Trả góp · Chi phí khác
+### 20 khoản chi tiêu
+Nhà ở / Thuê nhà · Gia đình · Bố mẹ · Xăng xe ô tô · Phí xe ô tô · Điện thoại · Ăn uống · Tiếp khách · Chi phí quà tặng, biếu khách hàng · Mua sắm cá nhân · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Thể thao · Phần mềm / App · Bảo hiểm · Trả nợ (gốc / lãi) · Trả tiền mua BĐS · Thuế TNCN · Chi phí khác
 
 ### 5 khoản đầu tư
-Chứng khoán / Cổ phiếu · Chứng chỉ quỹ · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
+Chứng khoán / Cổ phiếu · Cryptos · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
 
 Mỗi giao dịch đầu tư là **Rót vốn** (chuyển tiền mặt vào đầu tư) hoặc **Rút vốn** (bán / tất toán về tiền mặt).
 Đầu tư không bị tính là chi tiêu: tiền chỉ chuyển từ *tiền mặt* sang *tài sản đầu tư*.

@@ -14,30 +14,36 @@
     { id: 'laitietkiem', name: 'Lãi tiết kiệm',       icon: '🏦', color: '#3b82f6' },
     { id: 'chothue',     name: 'Cho thuê tài sản',    icon: '🔑', color: '#6366f1' },
     { id: 'freelance',   name: 'Làm thêm / Freelance',icon: '💻', color: '#8b5cf6' },
-    { id: 'hoahong',     name: 'Hoa hồng',            icon: '🤝', color: '#a855f7' },
+    { id: 'hoahong',     name: 'Hoa hồng từ bán hàng', icon: '🤝', color: '#a855f7' },
     { id: 'quatang',     name: 'Được tặng / Lì xì',   icon: '🧧', color: '#ec4899' },
     { id: 'thukhac',     name: 'Thu nhập khác',       icon: '💰', color: '#84cc16' },
   ];
+  // Giữ nguyên id của các khoản cũ được đổi tên để dữ liệu đã nhập vẫn đúng chỗ
   const EXPENSE_CATS = [
-    { id: 'anuong',    name: 'Ăn uống',               icon: '🍜', color: '#f97316' },
-    { id: 'nhao',      name: 'Nhà ở / Thuê nhà',      icon: '🏠', color: '#ef4444' },
-    { id: 'diennuoc',  name: 'Điện, nước, gas',       icon: '💡', color: '#eab308' },
-    { id: 'dilai',     name: 'Đi lại / Xăng xe',      icon: '🛵', color: '#0ea5e9' },
-    { id: 'muasam',    name: 'Mua sắm',               icon: '🛍️', color: '#ec4899' },
-    { id: 'yte',       name: 'Sức khỏe / Y tế',       icon: '💊', color: '#14b8a6' },
-    { id: 'giaoduc',   name: 'Giáo dục / Học tập',    icon: '📚', color: '#6366f1' },
-    { id: 'giaitri',   name: 'Giải trí / Du lịch',    icon: '🎬', color: '#a855f7' },
-    { id: 'vienthong', name: 'Điện thoại / Internet', icon: '📱', color: '#3b82f6' },
-    { id: 'baohiem',   name: 'Bảo hiểm',              icon: '🛡️', color: '#64748b' },
-    { id: 'concai',    name: 'Con cái',               icon: '👶', color: '#f43f5e' },
-    { id: 'hieuhi',    name: 'Hiếu hỉ / Biếu tặng',   icon: '💐', color: '#d946ef' },
-    { id: 'lamdep',    name: 'Làm đẹp / Thể thao',    icon: '💅', color: '#fb7185' },
-    { id: 'trano',     name: 'Trả nợ / Trả góp',      icon: '💳', color: '#78716c' },
-    { id: 'chikhac',   name: 'Chi phí khác',          icon: '📦', color: '#94a3b8' },
+    { id: 'nhao',      name: 'Nhà ở / Thuê nhà',                    icon: '🏠', color: '#ef4444' },
+    { id: 'concai',    name: 'Gia đình',                            icon: '👨‍👩‍👧', color: '#f43f5e' },
+    { id: 'bome',      name: 'Bố mẹ',                               icon: '👴', color: '#e11d48' },
+    { id: 'dilai',     name: 'Xăng xe ô tô',                        icon: '⛽', color: '#0ea5e9' },
+    { id: 'phixe',     name: 'Phí xe ô tô',                         icon: '🚗', color: '#0284c7' },
+    { id: 'vienthong', name: 'Điện thoại',                          icon: '📱', color: '#3b82f6' },
+    { id: 'anuong',    name: 'Ăn uống',                             icon: '🍜', color: '#f97316' },
+    { id: 'tiepkhach', name: 'Tiếp khách',                          icon: '🥂', color: '#ea580c' },
+    { id: 'hieuhi',    name: 'Chi phí quà tặng, biếu khách hàng',   icon: '🎁', color: '#d946ef' },
+    { id: 'muasam',    name: 'Mua sắm cá nhân',                     icon: '🛍️', color: '#ec4899' },
+    { id: 'yte',       name: 'Sức khỏe / Y tế',                     icon: '💊', color: '#14b8a6' },
+    { id: 'giaoduc',   name: 'Giáo dục / Học tập',                  icon: '📚', color: '#6366f1' },
+    { id: 'giaitri',   name: 'Giải trí / Du lịch',                  icon: '🎬', color: '#a855f7' },
+    { id: 'lamdep',    name: 'Thể thao',                            icon: '🏸', color: '#22c55e' },
+    { id: 'phanmem',   name: 'Phần mềm / App',                      icon: '💻', color: '#8b5cf6' },
+    { id: 'baohiem',   name: 'Bảo hiểm',                            icon: '🛡️', color: '#64748b' },
+    { id: 'trano',     name: 'Trả nợ (gốc / lãi)',                  icon: '💳', color: '#78716c' },
+    { id: 'trabds',    name: 'Trả tiền mua BĐS',                    icon: '🏗️', color: '#b45309' },
+    { id: 'thuetncn',  name: 'Thuế TNCN',                           icon: '🧾', color: '#eab308' },
+    { id: 'chikhac',   name: 'Chi phí khác',                        icon: '📦', color: '#94a3b8' },
   ];
   const INVEST_CATS = [
     { id: 'chungkhoan',  name: 'Chứng khoán / Cổ phiếu', icon: '📊', color: '#2563eb' },
-    { id: 'quy',         name: 'Chứng chỉ quỹ',          icon: '🧺', color: '#0891b2' },
+    { id: 'quy',         name: 'Cryptos',                icon: '🪙', color: '#0891b2' },
     { id: 'vang',        name: 'Vàng / Bạc',             icon: '🥇', color: '#ca8a04' },
     { id: 'batdongsan',  name: 'Bất động sản',           icon: '🏘️', color: '#7c3aed' },
     { id: 'guitietkiem', name: 'Gửi tiết kiệm',          icon: '🏛️', color: '#059669' },
@@ -46,6 +52,9 @@
   const TYPE_NAMES = { income: 'Thu nhập', expense: 'Chi tiêu', invest: 'Đầu tư' };
   const CAT_MAP = Object.fromEntries([...INCOME_CATS, ...EXPENSE_CATS, ...INVEST_CATS].map(c => [c.id, c]));
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
+  // Khoản đã bỏ khỏi danh sách: chuyển dữ liệu cũ sang khoản gần nhất
+  const LEGACY_CAT = { diennuoc: 'nhao' };
+  const migrateTx = t => (LEGACY_CAT[t.cat] ? { ...t, cat: LEGACY_CAT[t.cat] } : t);
 
   // ---------------- LƯU TRỮ ----------------
   // Hai chế độ lưu:
@@ -64,7 +73,7 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions, budgets: raw.budgets || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {} };
     } catch (e) { /* bỏ qua */ }
     return { transactions: [], budgets: {} };
   }
@@ -115,7 +124,7 @@
         const body = d.data() || {};
         synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {} }) : JSON.stringify({ tx: body.tx || [] });
         if (d.id === 'meta') budgets = { ...(body.budgets || {}) };
-        else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push({ ...t }));
+        else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
       state = { transactions: tx, budgets };
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
@@ -596,27 +605,33 @@
       if (base.getMonth() === 11 || base.getMonth() === 5) push('income', 'thuong', rnd(5e6, 15e6), d(25), 'Thưởng');
       if (maxDay >= 6) {
         push('invest', 'chungkhoan', rnd(2e6, 4e6), d(6), 'Mua cổ phiếu định kỳ');
-        push('invest', 'quy', 1e6, d(6), 'Tích sản chứng chỉ quỹ');
+        push('invest', 'quy', 1e6, d(6), 'Mua BTC định kỳ');
       }
       if (base.getMonth() % 3 === 0) push('invest', 'guitietkiem', 5e6, d(7), 'Mở sổ tiết kiệm 6 tháng');
       if (Math.random() < .3) push('invest', 'vang', rnd(3e6, 8e6), d(18), 'Mua vàng nhẫn');
       if (Math.random() < .15) push('invest', 'chungkhoan', rnd(2e6, 5e6), d(22), 'Chốt lời một phần', 'out');
       if (mo === 8) push('invest', 'batdongsan', 30e6, d(3), 'Góp vốn mua đất');
       push('expense', 'nhao', 5e6, d(2), 'Tiền thuê nhà');
-      push('expense', 'diennuoc', rnd(6e5, 1.1e6), d(8), 'Điện nước tháng');
-      push('expense', 'vienthong', rnd(2.5e5, 3.5e5), d(10), 'Cước Internet + điện thoại');
+      push('expense', 'nhao', rnd(6e5, 1.1e6), d(8), 'Điện nước tháng');
+      push('expense', 'bome', 2e6, d(5), 'Gửi bố mẹ');
+      push('expense', 'vienthong', rnd(2.5e5, 3.5e5), d(10), 'Cước điện thoại');
+      push('expense', 'phixe', rnd(1.2e6, 2e6), d(11), 'Gửi xe tháng + phí đường bộ');
+      push('expense', 'phanmem', rnd(2e5, 5e5), d(12), 'Thuê bao phần mềm');
+      push('expense', 'thuetncn', rnd(8e5, 1.2e6), d(5), 'Thuế TNCN khấu trừ');
+      if (base.getMonth() % 3 === 1) push('expense', 'trabds', 10e6, d(20), 'Thanh toán đợt mua căn hộ');
       push('expense', 'baohiem', 6e5, d(12), 'Bảo hiểm sức khỏe');
-      push('expense', 'trano', 2e6, d(15), 'Trả góp điện thoại');
+      push('expense', 'trano', 2e6, d(15), 'Trả gốc + lãi vay');
       for (let day = 1; day <= maxDay; day++) {
         if (Math.random() < .85) push('expense', 'anuong', rnd(4e4, 2.5e5), d(day), notesFood[Math.floor(Math.random() * notesFood.length)]);
-        if (Math.random() < .25) push('expense', 'dilai', rnd(5e4, 1.5e5), d(day), 'Đổ xăng / Grab');
-        if (Math.random() < .08) push('expense', 'muasam', rnd(2e5, 1.5e6), d(day), 'Mua sắm');
+        if (Math.random() < .12) push('expense', 'dilai', rnd(3e5, 8e5), d(day), 'Đổ xăng ô tô');
+        if (Math.random() < .08) push('expense', 'muasam', rnd(2e5, 1.5e6), d(day), 'Mua sắm cá nhân');
+        if (Math.random() < .06) push('expense', 'tiepkhach', rnd(5e5, 2e6), d(day), 'Tiếp khách hàng');
         if (Math.random() < .06) push('expense', 'giaitri', rnd(1.5e5, 8e5), d(day), 'Xem phim / đi chơi');
         if (Math.random() < .04) push('expense', 'yte', rnd(1e5, 5e5), d(day), 'Thuốc');
-        if (Math.random() < .04) push('expense', 'hieuhi', rnd(3e5, 1e6), d(day), 'Đám cưới');
-        if (Math.random() < .05) push('expense', 'lamdep', rnd(1e5, 4e5), d(day), 'Cắt tóc / Gym');
+        if (Math.random() < .04) push('expense', 'hieuhi', rnd(3e5, 1e6), d(day), 'Quà biếu khách hàng');
+        if (Math.random() < .05) push('expense', 'lamdep', rnd(1e5, 4e5), d(day), 'Cầu lông / Gym');
         if (Math.random() < .03) push('expense', 'giaoduc', rnd(2e5, 1.5e6), d(day), 'Sách / khóa học');
-        if (Math.random() < .04) push('expense', 'concai', rnd(1e5, 6e5), d(day), 'Đồ dùng cho bé');
+        if (Math.random() < .04) push('expense', 'concai', rnd(1e5, 6e5), d(day), 'Chi tiêu gia đình');
         if (Math.random() < .02) push('expense', 'chikhac', rnd(5e4, 3e5), d(day), 'Linh tinh');
       }
     }
@@ -785,7 +800,7 @@
         try {
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
-          const valid = d.transactions.filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
+          const valid = d.transactions.map(t => (t ? migrateTx(t) : t)).filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
             .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}) }));
           e.target.value = '';
           if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
@@ -812,7 +827,7 @@
   async function loadSample() {
     if (state.transactions.length && !await askConfirm('Dữ liệu mẫu sẽ THAY THẾ dữ liệu hiện tại. Tiếp tục?', 'Nạp dữ liệu mẫu')) return;
     state.transactions = sampleData();
-    state.budgets = { anuong: 4500000, dilai: 1000000, muasam: 1500000, giaitri: 1000000, diennuoc: 1000000, lamdep: 500000 };
+    state.budgets = { anuong: 4500000, dilai: 2000000, muasam: 1500000, giaitri: 1000000, tiepkhach: 2000000, lamdep: 500000 };
     save(); renderCurrent(); toast('✨ Đã nạp dữ liệu mẫu 12 tháng');
   }
 
