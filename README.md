@@ -41,3 +41,8 @@ js/vendor/chart.umd.min.js Chart.js 4.4.1 (MIT) – vẽ biểu đồ
 ```
 
 > Lưu ý: dữ liệu nằm trong trình duyệt đang dùng. Xóa dữ liệu trình duyệt sẽ mất dữ liệu – hãy dùng **Sao lưu** định kỳ.
+
+## Bản web trên claude.ai
+`python3 tools/build_artifact.py dist/so-thu-chi.html` gộp toàn bộ app thành một trang duy nhất để đăng lên claude.ai.
+Khi mở trên claude.ai, dữ liệu được lưu vào kho riêng của tài khoản (chỉ người dùng đó xem được) và đồng bộ giữa các thiết bị;
+khi mở `index.html` trực tiếp, dữ liệu vẫn lưu trong trình duyệt như trước.

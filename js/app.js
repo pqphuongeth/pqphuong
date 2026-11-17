@@ -48,21 +48,82 @@
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
 
   // ---------------- LƯU TRỮ ----------------
+  // Hai chế độ lưu:
+  //  - 'local': localStorage của trình duyệt (khi mở file index.html / GitHub Pages)
+  //  - 'cloud': kho dữ liệu riêng của tài khoản khi mở trên claude.ai
+  //    (mỗi tháng một tài liệu data/users/<id>/m-YYYY-MM, ngân sách ở .../meta)
   const STORE_KEY = 'sothuchi_v1';
+  const THEME_KEY = 'sothuchi_theme';
+  let storageMode = 'local';
+  let cloud = null;                 // { db, base }
+  const synced = {};                // docId -> JSON đã đồng bộ, để chỉ ghi phần thay đổi
+  const writeChains = {};           // docId -> Promise, ghi tuần tự từng tài liệu
   let state = load();
+  let themePref = (() => { try { return localStorage.getItem(THEME_KEY); } catch (e) { return null; } })();
 
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) {
-        return { transactions: raw.transactions, budgets: raw.budgets || {}, theme: raw.theme || null };
-      }
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions, budgets: raw.budgets || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {}, theme: null };
+    return { transactions: [], budgets: {} };
+  }
+  function cloudDocs() {
+    const docs = { meta: JSON.stringify({ budgets: state.budgets }) };
+    const byMonth = {};
+    for (const t of state.transactions) (byMonth['m-' + t.date.slice(0, 7)] ||= []).push(t);
+    for (const [k, list] of Object.entries(byMonth)) docs[k] = JSON.stringify({ tx: list.slice().sort((a, b) => a.id.localeCompare(b.id)) });
+    return docs;
+  }
+  function queueWrite(id, body) {
+    const ref = cloud.db.collection(cloud.base).doc(id);
+    const run = () => (body === null ? ref.delete() : ref.set(JSON.parse(body))).catch(err => {
+      delete synced[id];
+      toast(err && err.code === 'quota_exceeded' ? '⚠️ Kho dữ liệu đã đầy, hãy xóa bớt giao dịch cũ' : '⚠️ Chưa lưu được lên tài khoản, hãy thử lại');
+    });
+    writeChains[id] = (writeChains[id] || Promise.resolve()).then(run);
   }
   function save() {
+    if (storageMode === 'cloud') {
+      const docs = cloudDocs();
+      for (const [id, body] of Object.entries(docs)) if (synced[id] !== body) { synced[id] = body; queueWrite(id, body); }
+      for (const id of Object.keys(synced)) if (!(id in docs) && synced[id] !== null) { synced[id] = null; queueWrite(id, null); }
+      return;
+    }
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (e) { toast('⚠️ Không thể lưu dữ liệu trên trình duyệt này'); }
+  }
+  function setSyncStatus(kind, text) {
+    const el = $('#syncStatus'); if (!el) return;
+    el.className = 'sync ' + kind; el.textContent = text;
+  }
+  async function connectCloud() {
+    if (!window.claude || typeof window.claude.use !== 'function') return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
+    setSyncStatus('wait', '⏳ Đang kết nối…');
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    const id = user ? await user.id() : null;
+    if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
+    cloud = { db, base: 'data/users/' + id };
+    storageMode = 'cloud';
+    state = { transactions: [], budgets: {} };
+    renderCurrent();
+    let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
+    db.collection(cloud.base).onSnapshot(snap => {
+      const tx = [];
+      let budgets = {};
+      for (const d of snap.docs) {
+        const body = d.data() || {};
+        synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {} }) : JSON.stringify({ tx: body.tx || [] });
+        if (d.id === 'meta') budgets = { ...(body.budgets || {}) };
+        else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push({ ...t }));
+      }
+      state = { transactions: tx, budgets };
+      if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
+      renderCurrent();
+    }, () => {
+      clearTimeout(timer);
+      setSyncStatus('wait', '⚠️ Mất kết nối kho dữ liệu, hãy tải lại trang');
+    });
   }
 
   // ---------------- TIỆN ÍCH ----------------
@@ -496,7 +557,13 @@
     $('#expenseCatList').innerHTML = chips(EXPENSE_CATS);
     $('#investCatList').innerHTML = chips(INVEST_CATS);
   }
-  function download(name, content, mime) {
+  async function download(name, content, mime) {
+    const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null;
+    if (dl) {
+      try { await dl.save({ filename: name, data: content }); toast('✅ Đã lưu file ' + name); }
+      catch (err) { if (!err || err.code !== 'declined') toast('⚠️ Không tải được file ở chế độ xem này'); }
+      return;
+    }
     const blob = new Blob([content], { type: mime });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = name;
@@ -611,19 +678,35 @@
     if (p > 100) setTimeout(() => toast(`⚠️ ${catOf(t.cat).name}: đã vượt hạn mức ${money(spent - limit)}!`), 2500);
     else if (p >= 80) setTimeout(() => toast(`🔔 ${catOf(t.cat).name}: đã dùng ${p.toFixed(0)}% hạn mức tháng`), 2500);
   }
-  function deleteTx(id) {
+  function askConfirm(message, okLabel = 'Đồng ý') {
+    return new Promise(resolve => {
+      const box = $('#confirmModal');
+      $('#confirmText').textContent = message;
+      $('#confirmOk').textContent = okLabel;
+      box.classList.remove('hidden');
+      const done = v => { box.classList.add('hidden'); $('#confirmOk').onclick = $('#confirmCancel').onclick = null; resolve(v); };
+      $('#confirmOk').onclick = () => done(true);
+      $('#confirmCancel').onclick = () => done(false);
+      $('#confirmOk').focus();
+    });
+  }
+  async function deleteTx(id) {
     const t = state.transactions.find(x => x.id === id);
     if (!t) return;
-    if (!confirm(`Xóa giao dịch "${catOf(t.cat).name}" ${money(t.amount)}?`)) return;
+    if (!await askConfirm(`Xóa giao dịch "${catOf(t.cat).name}" ${money(t.amount)}?`, 'Xóa')) return;
     state.transactions = state.transactions.filter(x => x.id !== id);
     save(); closeModal(); renderCurrent(); toast('🗑️ Đã xóa giao dịch');
   }
 
   // ---------------- GIAO DIỆN SÁNG/TỐI ----------------
+  // Chưa chọn thì theo hệ thống (hoặc theo giao diện của trang chứa nếu có data-theme)
+  const isDark = () => {
+    const a = document.documentElement.dataset.theme;
+    return a ? a === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  };
   function applyTheme() {
-    const dark = state.theme ? state.theme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-    $('#themeToggle').textContent = dark ? '☀️' : '🌙';
+    if (themePref) document.documentElement.dataset.theme = themePref;
+    $('#themeToggle').textContent = isDark() ? '☀️' : '🌙';
   }
 
   // ---------------- SỰ KIỆN ----------------
@@ -689,21 +772,23 @@
 
     // Cài đặt
     $('#themeToggle').addEventListener('click', () => {
-      state.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      save(); applyTheme(); renderCurrent();
+      themePref = isDark() ? 'light' : 'dark';
+      try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
+      applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify(state, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets }, null, 2), 'application/json'));
     $('#exportCsv').addEventListener('click', exportCsv);
     $('#importJson').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
           const valid = d.transactions.filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
             .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}) }));
-          if (!confirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`)) return;
+          e.target.value = '';
+          if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
           save(); renderCurrent(); toast('✅ Đã khôi phục dữ liệu');
@@ -713,16 +798,19 @@
       reader.readAsText(f);
     });
     $('#loadSample').addEventListener('click', loadSample);
-    $('#clearAll').addEventListener('click', () => {
-      if (!confirm('Bạn chắc chắn muốn XÓA TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.')) return;
+    $('#clearAll').addEventListener('click', async () => {
+      if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
       state.transactions = []; state.budgets = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
     });
 
     let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderCurrent, 250); });
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (!state.theme) { applyTheme(); renderCurrent(); } });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { applyTheme(); renderCurrent(); });
+    // Trang chứa (vd. claude.ai) có thể đổi data-theme: vẽ lại biểu đồ theo màu mới
+    new MutationObserver(() => { $('#themeToggle').textContent = isDark() ? '☀️' : '🌙'; renderCurrent(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   }
-  function loadSample() {
-    if (state.transactions.length && !confirm('Dữ liệu mẫu sẽ THAY THẾ dữ liệu hiện tại. Tiếp tục?')) return;
+  async function loadSample() {
+    if (state.transactions.length && !await askConfirm('Dữ liệu mẫu sẽ THAY THẾ dữ liệu hiện tại. Tiếp tục?', 'Nạp dữ liệu mẫu')) return;
     state.transactions = sampleData();
     state.budgets = { anuong: 4500000, dilai: 1000000, muasam: 1500000, giaitri: 1000000, diennuoc: 1000000, lamdep: 500000 };
     save(); renderCurrent(); toast('✨ Đã nạp dữ liệu mẫu 12 tháng');
@@ -736,6 +824,7 @@
     fillCatFilter();
     bind();
     renderCurrent();
+    connectCloud().catch(() => setSyncStatus('local', '💾 Lưu trên trình duyệt này'));
   }
   init();
 })();

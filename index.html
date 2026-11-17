@@ -39,6 +39,7 @@
           <div class="muted" id="todayLabel"></div>
         </div>
         <div class="topbar-actions">
+          <span class="sync wait" id="syncStatus"></span>
           <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng/tối">🌙</button>
           <button class="btn btn-primary hide-mobile" data-action="add">＋ Thêm</button>
         </div>
@@ -285,6 +286,18 @@
         <button type="submit" class="btn btn-primary">Lưu</button>
       </div>
     </form>
+  </div>
+
+  <!-- ============ HỘP THOẠI XÁC NHẬN ============ -->
+  <div class="modal-backdrop hidden" id="confirmModal">
+    <div class="modal confirm-box" role="alertdialog" aria-labelledby="confirmText">
+      <p id="confirmText"></p>
+      <div class="modal-foot">
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-ghost" id="confirmCancel">Hủy</button>
+        <button type="button" class="btn btn-danger" id="confirmOk">Đồng ý</button>
+      </div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
