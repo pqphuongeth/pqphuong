@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vinhomes Hải Vân Bay – Đô thị vịnh biển dưới chân đèo Hải Vân</title>
+<meta name="description" content="Thông tin dự án Vinhomes Hải Vân Bay (Làng Vân, Đà Nẵng): 512,2 ha, 4 phân khu Bạch Vân – Vịnh Mây – Đảo Ngọc – Tinh Vân, liền kề, shophouse, biệt thự. Nhận bảng giá và chính sách mới nhất.">
+<meta name="theme-color" content="#0b3b4f">
+<meta property="og:title" content="Vinhomes Hải Vân Bay – Đô thị vịnh biển dưới chân đèo Hải Vân">
+<meta property="og:description" content="512,2 ha bên vịnh Nam Chơn, Đà Nẵng. Liền kề, shophouse, biệt thự song lập, đơn lập. Nhận bảng giá & chính sách mới nhất.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap&subset=vietnamese">
+<style>
+:root{
+  --sea:#0b3b4f;--sea-2:#0f5470;--sea-3:#e7f1f4;--sand:#c68528;--sand-2:#f6ead6;--ink:#14232b;--muted:#5b6b73;
+  --bg:#fbfaf7;--card:#ffffff;--line:#e4e0d8;--ok:#1f7a4d;--err:#b3261e;
+  --r:16px;--shadow:0 10px 30px rgba(11,59,79,.10);
+  --serif:'Playfair Display',Georgia,serif;--sans:'Be Vietnam Pro',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans);-webkit-font-smoothing:antialiased}
+img,svg{max-width:100%;display:block}
+a{color:inherit}
+h1,h2,h3{line-height:1.2;margin:0}
+h2{font-family:var(--serif);font-size:clamp(28px,4vw,40px);color:var(--sea)}
+.wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+section{padding:72px 0}
+.eyebrow{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--sand);margin-bottom:10px}
+.lead{color:var(--muted);max-width:720px;margin:14px 0 0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:14px 26px;font:600 16px var(--sans);cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s,background .15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-gold{background:var(--sand);color:#fff;box-shadow:0 8px 20px rgba(198,133,40,.35)}
+.btn-gold:hover{background:#b07420}
+.btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.45)}
+.btn-line{background:#fff;color:var(--sea);border:1px solid var(--line)}
+.note{font-size:13px;color:var(--muted)}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--sand-2);color:#8a5a14}
+
+/* Header */
+header{position:sticky;top:0;z-index:50;background:rgba(251,250,247,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:700;color:var(--sea)}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.menu{display:flex;gap:22px;font-size:15px}
+.menu a{text-decoration:none;color:var(--ink)}
+.menu a:hover{color:var(--sand)}
+.nav .btn{padding:10px 18px;font-size:14px}
+@media(max-width:900px){.menu{display:none}}
+
+/* Hero */
+.hero{position:relative;color:#fff;padding:0;overflow:hidden;background:linear-gradient(180deg,#0a2f40 0%,#0f5470 55%,#1d7a8f 100%)}
+.hero svg.scene{position:absolute;inset:auto 0 0 0;width:100%;height:62%;pointer-events:none}
+.hero .sun{position:absolute;right:16%;top:38%;width:104px;height:104px;border-radius:50%;background:#f6d7a0;opacity:.85}
+@media(max-width:760px){.hero svg.scene{height:30%}.hero .sun{display:none}.hero .wrap{padding-top:48px!important}}
+.hero .wrap{position:relative;padding-top:96px;padding-bottom:150px}
+.hero h1{font-family:var(--serif);font-size:clamp(36px,6.2vw,68px);max-width:820px}
+.hero h1 span{color:#f1c98a}
+.hero p.sub{font-size:clamp(16px,2vw,19px);max-width:640px;opacity:.92;margin:18px 0 30px}
+.hero .ctas{display:flex;flex-wrap:wrap;gap:12px}
+.hero .hello{display:none;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:10px 14px;margin-bottom:18px;max-width:560px}
+.stats{position:relative;margin-top:-80px;z-index:2}
+.stats .grid{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+.stat{padding:26px 22px;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat b{display:block;font-family:var(--serif);font-size:clamp(26px,3.4vw,36px);color:var(--sea)}
+.stat span{color:var(--muted);font-size:14px}
+@media(max-width:760px){.stats .grid{grid-template-columns:1fr 1fr}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+
+/* Overview */
+.two{display:grid;grid-template-columns:1.05fr .95fr;gap:48px;align-items:start}
+@media(max-width:900px){.two{grid-template-columns:1fr;gap:32px}}
+table.facts{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.facts th,.facts td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}
+.facts th{width:38%;color:var(--muted);font-weight:500}
+.facts tr:last-child th,.facts tr:last-child td{border-bottom:0}
+.check{list-style:none;padding:0;margin:22px 0 0}
+.check li{position:relative;padding-left:30px;margin:10px 0}
+.check li:before{content:"";position:absolute;left:0;top:7px;width:18px;height:18px;border-radius:50%;background:var(--sand-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10.5l3 3 7-7' fill='none' stroke='%23c68528' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") center/12px no-repeat}
+
+/* Location */
+.loc{background:var(--sea);color:#fff}
+.loc h2{color:#fff}
+.loc .lead{color:rgba(255,255,255,.8)}
+.map{background:#0e4a62;border-radius:var(--r);padding:8px;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.dist{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:26px}
+.dist div{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:14px 16px}
+.dist b{display:block;font-size:20px;color:#f1c98a}
+.dist span{font-size:14px;opacity:.85}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:34px}
+@media(max-width:1000px){.cards{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cards{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.card .art{height:120px}
+.card .body{padding:20px;flex:1;display:flex;flex-direction:column;gap:8px}
+.card h3{font-family:var(--serif);font-size:22px;color:var(--sea)}
+.card p{margin:0;color:var(--muted);font-size:15px}
+
+/* Products */
+.prod{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:34px}
+@media(max-width:1000px){.prod{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.prod{grid-template-columns:1fr}}
+.prod .item{background:var(--card);border-radius:var(--r);padding:24px;box-shadow:var(--shadow);border-top:4px solid var(--sand);display:flex;flex-direction:column;gap:10px}
+.prod h3{font-size:19px;color:var(--sea)}
+.prod dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px}
+.prod dt{color:var(--muted)}
+.prod dd{margin:0;font-weight:600;text-align:right}
+.prod .btn{margin-top:auto;padding:10px 16px;font-size:14px}
+
+/* Amenities */
+.amen{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+@media(max-width:900px){.amen{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.amen{grid-template-columns:1fr}}
+.amen div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;gap:14px;align-items:flex-start}
+.amen i{flex:none;width:44px;height:44px;border-radius:12px;background:var(--sea-3);display:grid;place-items:center;font-style:normal;font-size:22px}
+.amen b{display:block;color:var(--sea)}
+.amen span{font-size:14px;color:var(--muted)}
+
+/* Timeline */
+.tl{position:relative;margin:36px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.tl li{background:var(--card);border-radius:14px;padding:18px;border:1px solid var(--line);position:relative}
+.tl li b{display:block;color:var(--sand);font-size:14px}
+.tl li span{font-size:14px}
+.tl li.now{border-color:var(--sand);box-shadow:var(--shadow)}
+@media(max-width:1000px){.tl{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.tl{grid-template-columns:1fr}}
+
+/* Policy */
+.policy{background:var(--sand-2)}
+.pol{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:30px}
+@media(max-width:900px){.pol{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.pol{grid-template-columns:1fr}}
+.pol div{background:#fff;border-radius:14px;padding:20px}
+.pol b{display:block;font-family:var(--serif);font-size:26px;color:var(--sand)}
+.pol span{font-size:15px}
+
+/* Calculator */
+.calc{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:26px;display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:34px}
+@media(max-width:800px){.calc{grid-template-columns:1fr}}
+.calc label{display:block;font-size:14px;font-weight:600;margin:12px 0 6px}
+.calc output{float:right;color:var(--sea)}
+.calc input[type=range]{width:100%;accent-color:var(--sand)}
+.result{background:var(--sea);color:#fff;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px;justify-content:center}
+.result .big{font-family:var(--serif);font-size:clamp(28px,4vw,40px);color:#f1c98a}
+.result .row{display:flex;justify-content:space-between;font-size:15px;border-bottom:1px dashed rgba(255,255,255,.2);padding:6px 0}
+
+/* FAQ */
+details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:10px 0}
+summary{cursor:pointer;font-weight:600;color:var(--sea);list-style:none}
+summary::-webkit-details-marker{display:none}
+summary:after{content:"+";float:right;color:var(--sand);font-size:22px;line-height:1}
+details[open] summary:after{content:"–"}
+details p{margin:10px 0 0;color:var(--muted)}
+
+/* Form */
+.contact{background:linear-gradient(135deg,#0a2f40,#0f5470);color:#fff}
+.contact h2{color:#fff}
+.contact .lead{color:rgba(255,255,255,.82)}
+form.lead-form{background:#fff;color:var(--ink);border-radius:var(--r);padding:28px;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.f-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:560px){.f-grid{grid-template-columns:1fr}}
+.f-grid .full{grid-column:1/-1}
+.field label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font:15px var(--sans);background:#fff;color:var(--ink)}
+.field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--sand);outline-offset:0;border-color:transparent}
+.field .err{display:none;color:var(--err);font-size:13px;margin-top:4px}
+.field.invalid .err{display:block}
+.field.invalid input{border-color:var(--err)}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted)}
+.consent input{margin-top:4px;accent-color:var(--sand)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.form-msg{display:none;border-radius:10px;padding:12px 14px;margin-top:14px;font-size:15px}
+.form-msg.ok{display:block;background:#e6f4ec;color:var(--ok)}
+.form-msg.bad{display:block;background:#fbe9e7;color:var(--err)}
+.perks{list-style:none;padding:0;margin:24px 0}
+.perks li{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.14)}
+.perks li b{color:#f1c98a}
+
+/* Footer */
+footer{background:#081f2a;color:rgba(255,255,255,.75);padding:40px 0 110px;font-size:14px}
+footer h4{color:#fff;margin:0 0 8px;font-size:15px}
+footer .cols{display:grid;grid-template-columns:1.3fr 1fr;gap:30px}
+@media(max-width:760px){footer .cols{grid-template-columns:1fr}}
+footer a{color:#f1c98a}
+
+/* Floating */
+.float{position:fixed;right:16px;bottom:16px;z-index:60;display:flex;flex-direction:column;gap:10px}
+.float a{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;box-shadow:0 8px 20px rgba(0,0,0,.25);text-decoration:none;color:#fff;font-weight:700;font-size:13px}
+.float .call{background:#1f7a4d;animation:pulse 2s infinite}
+.float .zalo{background:#0068ff}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(31,122,77,.5)}70%{box-shadow:0 0 0 14px rgba(31,122,77,0)}100%{box-shadow:0 0 0 0 rgba(31,122,77,0)}}
+.mbar{display:none}
+@media(max-width:640px){
+  .float{bottom:78px}
+  .mbar{display:grid;grid-template-columns:1fr 1fr;position:fixed;left:0;right:0;bottom:0;z-index:60;background:#fff;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));gap:10px}
+  .mbar .btn{padding:12px;font-size:15px}
+}
+
+/* Popup */
+.pop{position:fixed;inset:0;background:rgba(8,31,42,.55);z-index:80;display:none;align-items:center;justify-content:center;padding:16px}
+.pop.show{display:flex}
+.pop .box{background:#fff;border-radius:var(--r);max-width:440px;width:100%;padding:28px;position:relative}
+.pop .x{position:absolute;right:12px;top:8px;border:0;background:none;font-size:28px;cursor:pointer;color:var(--muted)}
+.pop h3{font-family:var(--serif);color:var(--sea);font-size:24px;margin-bottom:8px}
+
+.reveal{opacity:0;transform:translateY(16px);transition:opacity .6s,transform .6s}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}.float .call{animation:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="Về đầu trang">
+      <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="#0b3b4f"/><path d="M6 25c5-9 9-13 14-13s9 4 14 13" fill="none" stroke="#f1c98a" stroke-width="2.4"/><path d="M8 29c4-2 8-2 12 0s8 2 12 0" fill="none" stroke="#fff" stroke-width="2"/></svg>
+      <span>Hải Vân Bay<small>Thông tin dự án</small></span>
+    </a>
+    <nav class="menu" aria-label="Mục lục">
+      <a href="#tong-quan">Tổng quan</a><a href="#vi-tri">Vị trí</a><a href="#phan-khu">Phân khu</a><a href="#san-pham">Sản phẩm</a><a href="#tien-ich">Tiện ích</a><a href="#chinh-sach">Chính sách</a><a href="#hoi-dap">Hỏi đáp</a>
+    </nav>
+    <a class="btn btn-gold" href="#dang-ky" data-track="nav-nhan-bang-gia">Nhận bảng giá</a>
+  </div>
+</header>
+
+<main id="top">
+<!-- HERO -->
+<section class="hero" id="hero" data-sec="Đầu trang">
+  <div class="sun" aria-hidden="true"></div>
+  <svg class="scene" viewBox="0 0 1440 520" preserveAspectRatio="none" aria-hidden="true">
+    <defs>
+      <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7d6b"/><stop offset="1" stop-color="#14433f"/></linearGradient>
+      <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c5a55"/><stop offset="1" stop-color="#0d332f"/></linearGradient>
+      <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a9bb0"/><stop offset="1" stop-color="#0b3b4f"/></linearGradient>
+    </defs>
+    <path d="M0 300 C160 150 300 120 420 190 C520 250 600 210 700 170 C820 120 940 200 1040 250 L1040 330 L0 330Z" fill="url(#m1)" opacity=".9"/>
+    <path d="M0 330 C120 230 240 210 360 260 C460 300 540 290 620 300 L620 360 L0 360Z" fill="url(#m2)"/>
+    <path d="M0 340 Q720 300 1440 330 L1440 520 L0 520Z" fill="url(#sea)"/>
+    <path d="M820 345 q40 -6 80 0 t80 0 t80 0 t80 0 t80 0" fill="none" stroke="#bfe6ee" stroke-width="2" opacity=".5"/>
+    <path d="M200 400 q50 -8 100 0 t100 0 t100 0 t100 0" fill="none" stroke="#bfe6ee" stroke-width="2" opacity=".35"/>
+    <path d="M600 450 q60 -8 120 0 t120 0 t120 0 t120 0" fill="none" stroke="#bfe6ee" stroke-width="2" opacity=".3"/>
+    <g fill="#f6ead6" opacity=".9"><rect x="700" y="318" width="10" height="14"/><rect x="716" y="314" width="12" height="18"/><rect x="734" y="320" width="9" height="12"/><rect x="750" y="316" width="11" height="16"/><rect x="768" y="321" width="8" height="11"/></g>
+    <path d="M1180 380 l18 -40 l4 40z M1176 382 h34 l-6 8 h-24z" fill="#fff" opacity=".85"/>
+  </svg>
+  <div class="wrap">
+    <div class="hello" id="hello"></div>
+    <span class="eyebrow" style="color:#f1c98a">Làng Vân · Vịnh Nam Chơn · Đà Nẵng</span>
+    <h1>Vinhomes Hải Vân Bay – <span>đô thị vịnh biển</span> dưới chân đèo Hải Vân</h1>
+    <p class="sub">512,2 ha giữa núi và biển, tổng vốn đầu tư khoảng 44.000 tỷ đồng. Gồm liền kề, shophouse, biệt thự song lập và đơn lập trong 4 phân khu Bạch Vân, Vịnh Mây, Đảo Ngọc và Tinh Vân.</p>
+    <div class="ctas">
+      <a class="btn btn-gold" href="#dang-ky" data-track="hero-nhan-bang-gia">Nhận bảng giá & chính sách</a>
+      <a class="btn btn-ghost" href="#tong-quan" data-track="hero-xem-tong-quan">Xem tổng quan dự án</a>
+    </div>
+  </div>
+</section>
+
+<div class="stats wrap">
+  <div class="grid">
+    <div class="stat"><b>512,2 ha</b><span>Quy mô dự án</span></div>
+    <div class="stat"><b>~44.000 tỷ</b><span>Tổng vốn đầu tư (≈1,7 tỷ USD)</span></div>
+    <div class="stat"><b>4 phân khu</b><span>Bạch Vân · Vịnh Mây · Đảo Ngọc · Tinh Vân</span></div>
+    <div class="stat"><b>3.550+ căn</b><span>Đã đủ điều kiện bán (2026)</span></div>
+  </div>
+</div>
+
+<!-- TỔNG QUAN -->
+<section id="tong-quan" data-sec="Tổng quan">
+  <div class="wrap two">
+    <div class="reveal">
+      <span class="eyebrow">Tổng quan dự án</span>
+      <h2>Một vịnh biển, một đô thị hoàn chỉnh</h2>
+      <p class="lead">Vinhomes Hải Vân Bay (dự án Làng Vân) nằm ở cửa ngõ phía Bắc Đà Nẵng, tựa lưng vào dãy Hải Vân, mặt hướng vịnh Nam Chơn. Dự án khởi công ngày 22/6/2025 và ra mắt chính thức ngày 20/4/2026.</p>
+      <ul class="check">
+        <li>Do <b>Vingroup</b> đầu tư: Công ty CP Vinpearl làm chủ đầu tư, Vinhomes phát triển và phân phối.</li>
+        <li>Quỹ căn được <b>Sở Xây dựng Đà Nẵng xác nhận đủ điều kiện bán</b> theo từng đợt.</li>
+        <li>Theo công bố của chủ đầu tư, nhà ở tại dự án được <b>sở hữu lâu dài</b>. Mỗi căn cần đối chiếu theo hợp đồng.</li>
+        <li>Có <b>VinWonders 24,8 ha</b>, bến du thuyền, công viên và đường dạo ven biển trong quy hoạch.</li>
+      </ul>
+    </div>
+    <table class="facts reveal">
+      <tr><th>Tên thương mại</th><td>Vinhomes Hải Vân Bay</td></tr>
+      <tr><th>Tên pháp lý</th><td>Khu phức hợp du lịch và đô thị nghỉ dưỡng Làng Vân</td></tr>
+      <tr><th>Chủ đầu tư</th><td>Công ty CP Vinpearl (Tập đoàn Vingroup)</td></tr>
+      <tr><th>Phát triển & phân phối</th><td>Công ty CP Vinhomes</td></tr>
+      <tr><th>Vị trí</th><td>Làng Vân, vịnh Nam Chơn, phường Hải Vân (trước đây là phường Hòa Hiệp Bắc, Liên Chiểu), TP Đà Nẵng</td></tr>
+      <tr><th>Quy mô</th><td>512,2 ha</td></tr>
+      <tr><th>Tổng vốn đầu tư</th><td>Khoảng 43.920 tỷ đồng</td></tr>
+      <tr><th>Loại hình</th><td>Nhà liền kề, shophouse, biệt thự song lập, biệt thự đơn lập</td></tr>
+      <tr><th>Khởi công</th><td>22/6/2025</td></tr>
+      <tr><th>Ra mắt</th><td>20/4/2026</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- VỊ TRÍ -->
+<section class="loc" id="vi-tri" data-sec="Vị trí">
+  <div class="wrap two">
+    <div class="reveal">
+      <span class="eyebrow" style="color:#f1c98a">Vị trí – kết nối</span>
+      <h2>Giữa Đà Nẵng và Huế, liền kề cảng Liên Chiểu</h2>
+      <p class="lead">Dự án nằm trên trục kết nối Đà Nẵng – Huế qua hầm Hải Vân, sát siêu cảng Liên Chiểu. Cảng khởi công ngày 25/4/2026 với vốn hơn 45.000 tỷ đồng. Đà Nẵng là điểm đến du lịch hàng đầu miền Trung, nên vịnh biển nguyên sơ hiếm có này nằm trong vùng tăng trưởng của thành phố.</p>
+      <div class="dist">
+        <div><b>~20 phút</b><span>Trung tâm Đà Nẵng</span></div>
+        <div><b>~20–30 phút</b><span>Sân bay quốc tế Đà Nẵng</span></div>
+        <div><b>Vài phút</b><span>Cửa hầm Hải Vân</span></div>
+        <div><b>~80 km</b><span>Cố đô Huế (qua hầm Hải Vân)</span></div>
+      </div>
+      <p class="note" style="color:rgba(255,255,255,.65);margin-top:14px">Thời gian di chuyển là ước tính theo đường bộ và tùy giao thông.</p>
+    </div>
+    <div class="map reveal">
+      <svg viewBox="0 0 520 440" role="img" aria-label="Sơ đồ vị trí minh họa: dự án nằm ở vịnh Nam Chơn, phía Bắc Đà Nẵng, cạnh cảng Liên Chiểu và hầm Hải Vân">
+        <rect width="520" height="440" rx="12" fill="#0e4a62"/>
+        <path d="M0 0 H520 V150 C470 170 430 150 400 175 C360 210 330 200 300 235 C270 270 240 280 215 320 C195 355 205 400 190 440 H0Z" fill="#1d5c53"/>
+        <path d="M0 0 H300 C270 30 230 40 200 70 C160 110 110 110 60 150 C30 175 10 175 0 180Z" fill="#2d7466"/>
+        <path d="M120 60 l20 -18 l18 14 l22 -20 l20 18" fill="none" stroke="#9fd3c5" stroke-width="2" opacity=".6"/>
+        <text x="96" y="104" fill="#cfe9e2" font-size="13" font-family="Be Vietnam Pro, sans-serif">Dãy Hải Vân</text>
+        <path d="M190 180 L330 200" stroke="#f1c98a" stroke-width="3" stroke-dasharray="6 6"/>
+        <text x="200" y="170" fill="#f1c98a" font-size="12" font-family="Be Vietnam Pro, sans-serif">Hầm Hải Vân → Huế</text>
+        <circle cx="330" cy="210" r="10" fill="#f1c98a"/><circle cx="330" cy="210" r="20" fill="none" stroke="#f1c98a" stroke-width="2" opacity=".6"/>
+        <text x="350" y="206" fill="#fff" font-size="15" font-weight="700" font-family="Be Vietnam Pro, sans-serif">Hải Vân Bay</text>
+        <text x="350" y="224" fill="#cfe9e2" font-size="12" font-family="Be Vietnam Pro, sans-serif">Vịnh Nam Chơn</text>
+        <rect x="262" y="262" width="30" height="16" rx="3" fill="#fff" opacity=".9"/>
+        <text x="300" y="275" fill="#fff" font-size="12" font-family="Be Vietnam Pro, sans-serif">Cảng Liên Chiểu</text>
+        <path d="M330 220 C300 300 260 340 250 400" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>
+        <circle cx="250" cy="400" r="8" fill="#fff"/>
+        <text x="160" y="425" fill="#fff" font-size="13" font-family="Be Vietnam Pro, sans-serif">Trung tâm Đà Nẵng · Sân bay</text>
+        <text x="420" y="320" fill="#9fd3e0" font-size="14" font-style="italic" font-family="Be Vietnam Pro, sans-serif">Biển Đông</text>
+        <text x="440" y="430" fill="#9fd3e0" font-size="10" font-family="Be Vietnam Pro, sans-serif">Sơ đồ minh họa</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- PHÂN KHU -->
+<section id="phan-khu" data-sec="Phân khu">
+  <div class="wrap">
+    <span class="eyebrow">Quy hoạch</span>
+    <h2>4 phân khu, 4 phong cách sống ven vịnh</h2>
+    <p class="lead">Mỗi phân khu có quỹ sản phẩm và chính sách riêng, mở bán theo từng đợt.</p>
+    <div class="cards">
+      <article class="card reveal">
+        <svg class="art" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><rect width="300" height="120" fill="#e7f1f4"/><circle cx="240" cy="38" r="18" fill="#f6d7a0"/><path d="M0 80 Q150 40 300 80 V120 H0Z" fill="#9cc9d6"/><path d="M0 95 Q150 70 300 95 V120 H0Z" fill="#0f5470"/></svg>
+        <div class="body"><span class="tag">Mở bán đầu tiên</span><h3>Bạch Vân</h3><p>Phân khu mở bán đầu tiên (4/2026), gồm liền kề, shophouse và biệt thự song lập. Báo chí đưa tin phân khu nhanh chóng được giao dịch gần hết.</p></div>
+      </article>
+      <article class="card reveal">
+        <svg class="art" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><rect width="300" height="120" fill="#f6ead6"/><path d="M0 70 C60 30 120 30 170 60 S260 90 300 50 V120 H0Z" fill="#d9b77a"/><path d="M0 92 Q150 72 300 92 V120 H0Z" fill="#0f5470"/></svg>
+        <div class="body"><span class="tag">Khu 2</span><h3>Vịnh Mây</h3><p>Ôm theo đường cong vịnh. Có 154 căn được xác nhận đủ điều kiện bán ngày 8/10/2026 và áp dụng chính sách từ 1/10/2026.</p></div>
+      </article>
+      <article class="card reveal">
+        <svg class="art" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><rect width="300" height="120" fill="#e3f0ec"/><ellipse cx="150" cy="78" rx="80" ry="22" fill="#2f7d6b"/><path d="M0 92 Q150 78 300 92 V120 H0Z" fill="#2a9bb0"/></svg>
+        <div class="body"><span class="tag">Di sản biển</span><h3>Đảo Ngọc</h3><p>Lấy cảm hứng từ vùng biển Địa Trung Hải. Có những căn hoàn thiện được ưu đãi theo chương trình “về ở sớm”.</p></div>
+      </article>
+      <article class="card reveal">
+        <svg class="art" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><rect width="300" height="120" fill="#eef0f6"/><g fill="#c9ccd9"><circle cx="60" cy="30" r="2"/><circle cx="120" cy="20" r="2"/><circle cx="200" cy="34" r="2"/><circle cx="250" cy="18" r="2"/></g><path d="M90 90 L150 52 L210 90Z" fill="#0b3b4f"/><path d="M0 98 H300 V120 H0Z" fill="#0f5470"/></svg>
+        <div class="body"><span class="tag">Sắp ra mắt</span><h3>Tinh Vân</h3><p>Biệt thự mang phong cách Nhật Bản. Chủ đầu tư chưa công bố chính sách bán hàng. Để lại thông tin để được báo sớm khi mở bán.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- SẢN PHẨM -->
+<section id="san-pham" style="background:var(--sea-3)" data-sec="Sản phẩm">
+  <div class="wrap">
+    <span class="eyebrow">Sản phẩm</span>
+    <h2>Thấp tầng ven biển: từ liền kề đến biệt thự đơn lập</h2>
+    <p class="lead">Diện tích đất và khoảng giá dưới đây là tham khảo theo thị trường, chưa gồm VAT và phí bảo trì. Giá từng căn phụ thuộc vị trí, hướng view, phân khu và chính sách tại thời điểm mua.</p>
+    <div class="prod">
+      <div class="item reveal"><h3>Nhà liền kề</h3><dl><dt>Đất</dt><dd>63 – 80 m²</dd><dt>Giá tham khảo</dt><dd>từ ~5,2 tỷ</dd><dt>Phù hợp</dt><dd>Ở · cho thuê</dd></dl><a class="btn btn-line" href="#dang-ky" data-product="Nhà liền kề" data-track="sp-lien-ke">Nhận giá liền kề</a></div>
+      <div class="item reveal"><h3>Shophouse</h3><dl><dt>Đất</dt><dd>90 – 100 m²</dd><dt>Giá tham khảo</dt><dd>Liên hệ</dd><dt>Phù hợp</dt><dd>Kinh doanh</dd></dl><a class="btn btn-line" href="#dang-ky" data-product="Shophouse" data-track="sp-shophouse">Nhận giá shophouse</a></div>
+      <div class="item reveal"><h3>Biệt thự song lập</h3><dl><dt>Đất</dt><dd>145 – 200 m²</dd><dt>Giá tham khảo</dt><dd>~13,5 – 17 tỷ</dd><dt>Phù hợp</dt><dd>Gia đình nhiều thế hệ</dd></dl><a class="btn btn-line" href="#dang-ky" data-product="Biệt thự song lập" data-track="sp-song-lap">Nhận giá song lập</a></div>
+      <div class="item reveal"><h3>Biệt thự đơn lập</h3><dl><dt>Đất</dt><dd>200 – 450 m²</dd><dt>Giá tham khảo</dt><dd>Theo vị trí</dd><dt>Phù hợp</dt><dd>Nghỉ dưỡng · tài sản</dd></dl><a class="btn btn-line" href="#dang-ky" data-product="Biệt thự đơn lập" data-track="sp-don-lap">Nhận giá đơn lập</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- TIỆN ÍCH -->
+<section id="tien-ich" data-sec="Tiện ích">
+  <div class="wrap">
+    <span class="eyebrow">Tiện ích</span>
+    <h2>Hệ sinh thái Vingroup bên vịnh biển</h2>
+    <p class="lead">Các hạng mục theo quy hoạch và thông tin chủ đầu tư công bố. Tiến độ từng hạng mục được cập nhật theo thực tế.</p>
+    <div class="amen">
+      <div class="reveal"><i aria-hidden="true">🎡</i><p><b>VinWonders Hải Vân Bay</b><span>Tổ hợp vui chơi giải trí quy mô 24,8 ha</span></p></div>
+      <div class="reveal"><i aria-hidden="true">⛵</i><p><b>Bến du thuyền</b><span>Marina trong lòng vịnh Nam Chơn</span></p></div>
+      <div class="reveal"><i aria-hidden="true">⛳</i><p><b>Sân golf</b><span>Theo quy hoạch dự án</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🌳</i><p><b>Công viên Đảo Ngọc, Bạch Thảo</b><span>Công viên cảnh quan, dự kiến hoàn thành năm 2027</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🏖️</i><p><b>Đường dạo ven biển</b><span>Bãi biển và tuyến đi dạo dọc vịnh</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🏨</i><p><b>Khách sạn & resort cao cấp</b><span>Nguồn khách du lịch cho shophouse, nhà cho thuê</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🏫</i><p><b>Trường học</b><span>Hệ thống giáo dục liên cấp trong khu đô thị (dự kiến)</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🏥</i><p><b>Y tế</b><span>Cơ sở y tế phục vụ cư dân (dự kiến)</span></p></div>
+      <div class="reveal"><i aria-hidden="true">🛍️</i><p><b>Thương mại – dịch vụ</b><span>Trung tâm thương mại, phố đi bộ, ẩm thực (dự kiến)</span></p></div>
+    </div>
+  </div>
+</section>
+
+<!-- TIẾN ĐỘ -->
+<section id="tien-do" style="padding-top:0" data-sec="Tiến độ">
+  <div class="wrap">
+    <span class="eyebrow">Tiến độ</span>
+    <h2>Các mốc chính</h2>
+    <ol class="tl">
+      <li class="reveal"><b>22/6/2025</b><span>Khởi công dự án Làng Vân</span></li>
+      <li class="reveal"><b>4/2026</b><span>2.437 căn thấp tầng (khu 1) đủ điều kiện bán</span></li>
+      <li class="reveal"><b>20/4/2026</b><span>Ra mắt chính thức Vinhomes Hải Vân Bay</span></li>
+      <li class="reveal"><b>6/2026</b><span>Thêm 966 căn (khu 3) đủ điều kiện bán</span></li>
+      <li class="reveal"><b>10/2026</b><span>154 căn phân khu 2 đủ điều kiện bán, chính sách mới</span></li>
+      <li class="reveal now"><b>2027 →</b><span>Các công viên, tiện ích lớn dự kiến lần lượt hoàn thành</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- CHÍNH SÁCH -->
+<section class="policy" id="chinh-sach" data-sec="Chính sách">
+  <div class="wrap">
+    <span class="eyebrow">Chính sách bán hàng</span>
+    <h2>Nhiều phương án để sở hữu</h2>
+    <p class="lead">Các chương trình ưu đãi tham khảo theo chính sách tháng 10/2026. Mỗi căn và mỗi thời điểm áp dụng khác nhau. Để lại thông tin để nhận bảng tính giá chi tiết cho căn bạn quan tâm.</p>
+    <div class="pol">
+      <div class="reveal"><b>Vay đến 70%</b><span>Ngân hàng đối tác cho vay đến 70% giá trị, có phương án hỗ trợ lãi suất theo từng thời kỳ</span></div>
+      <div class="reveal"><b>Thanh toán sớm</b><span>Chiết khấu khi chọn phương án thanh toán sớm hoặc thanh toán nhanh</span></div>
+      <div class="reveal"><b>Ưu đãi “đồng hương”</b><span>Ưu đãi thêm cho khách hàng là người Đà Nẵng và Huế</span></div>
+      <div class="reveal"><b>Căn thứ 2</b><span>Ưu đãi cho khách mua căn thứ hai tại dự án</span></div>
+      <div class="reveal"><b>Hạng VinClub</b><span>Chiết khấu thêm theo hạng thành viên Vàng, Bạch kim hoặc Kim cương</span></div>
+      <div class="reveal"><b>Về ở sớm</b><span>Ưu đãi cho căn hoàn thiện khi đưa vào ở hoặc kinh doanh sớm (theo từng đợt)</span></div>
+    </div>
+
+    <div class="calc reveal" id="uoc-tinh">
+      <div>
+        <h3 style="color:var(--sea)">Ước tính khoản vay</h3>
+        <label for="c-price">Giá căn (tỷ đồng) <output id="o-price">8</output></label>
+        <input id="c-price" type="range" min="4" max="40" step="0.5" value="8">
+        <label for="c-loan">Tỷ lệ vay <output id="o-loan">70%</output></label>
+        <input id="c-loan" type="range" min="0" max="70" step="5" value="70">
+        <label for="c-year">Thời hạn vay <output id="o-year">20 năm</output></label>
+        <input id="c-year" type="range" min="5" max="35" step="1" value="20">
+        <label for="c-rate">Lãi suất giả định (%/năm) <output id="o-rate">9%</output></label>
+        <input id="c-rate" type="range" min="5" max="14" step="0.25" value="9">
+      </div>
+      <div class="result" aria-live="polite">
+        <span>Trả góp hằng tháng (gốc + lãi đều)</span>
+        <span class="big" id="r-month">–</span>
+        <div class="row"><span>Vốn tự có cần chuẩn bị</span><b id="r-own">–</b></div>
+        <div class="row"><span>Số tiền vay</span><b id="r-loan">–</b></div>
+        <p class="note" style="color:rgba(255,255,255,.7);margin:6px 0 0">Kết quả chỉ để tham khảo, chưa tính thời gian ân hạn và hỗ trợ lãi suất của chủ đầu tư.</p>
+        <a class="btn btn-gold" href="#dang-ky" data-track="calc-nhan-phuong-an">Nhận phương án tài chính chi tiết</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PHÁP LÝ / FAQ -->
+<section id="hoi-dap" data-sec="Hỏi đáp">
+  <div class="wrap two">
+    <div>
+      <span class="eyebrow">Hỏi đáp</span>
+      <h2>Câu hỏi khách hàng thường gặp</h2>
+      <p class="lead">Chưa thấy câu trả lời bạn cần? Gọi hoặc nhắn Zalo, chuyên viên sẽ trả lời ngay.</p>
+      <p style="margin-top:22px"><a class="btn btn-gold" href="#dang-ky" data-track="faq-dat-cau-hoi">Gửi câu hỏi</a></p>
+    </div>
+    <div>
+      <details><summary>Ai là chủ đầu tư dự án?</summary><p>Dự án có tên pháp lý “Khu phức hợp du lịch và đô thị nghỉ dưỡng Làng Vân”. Chủ đầu tư là Công ty CP Vinpearl, thuộc Tập đoàn Vingroup. Công ty CP Vinhomes ra mắt, phát triển và phân phối sản phẩm dưới thương hiệu Vinhomes Hải Vân Bay.</p></details>
+      <details><summary>Pháp lý dự án thế nào? Sở hữu bao lâu?</summary><p>Hồ sơ pháp lý được công bố công khai trên website của Vinpearl. Từng đợt sản phẩm đều có văn bản của Sở Xây dựng Đà Nẵng xác nhận đủ điều kiện bán. Theo công bố của chủ đầu tư, nhà ở tại dự án được sở hữu lâu dài. Thời hạn sở hữu của từng căn được ghi trong hợp đồng mua bán, chuyên viên sẽ gửi hợp đồng mẫu để bạn đối chiếu.</p></details>
+      <details><summary>Giá bán bao nhiêu? Có bảng giá không?</summary><p>Giá phụ thuộc phân khu, loại hình, vị trí, hướng và chính sách tại thời điểm mua. Liền kề có giá từ khoảng 5 tỷ đồng, biệt thự lên tới hàng chục tỷ. Để lại thông tin để nhận bảng giá và bảng tính dòng tiền của căn cụ thể.</p></details>
+      <details><summary>Có hỗ trợ vay ngân hàng không?</summary><p>Có. Ngân hàng đối tác cho vay đến khoảng 70% giá trị căn. Tùy thời điểm sẽ có chính sách hỗ trợ lãi suất hoặc ân hạn nợ gốc. Bạn có thể thử phần “Ước tính khoản vay” phía trên để hình dung trước.</p></details>
+      <details><summary>Khi nào bàn giao?</summary><p>Mỗi phân khu và lô có tiến độ bàn giao riêng, ghi rõ trong hợp đồng. Một số căn đã hoàn thiện được áp dụng chương trình ưu đãi “về ở sớm”.</p></details>
+      <details><summary>Có thể đi xem dự án thực tế không?</summary><p>Có. Chuyên viên sẽ sắp xếp lịch tham quan dự án và nhà mẫu, có hỗ trợ đưa đón tại Đà Nẵng. Bạn hãy chọn “Đi xem dự án” trong form đăng ký.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ĐĂNG KÝ -->
+<section class="contact" id="dang-ky" data-sec="Form đăng ký">
+  <div class="wrap two">
+    <div>
+      <span class="eyebrow" style="color:#f1c98a">Đăng ký tư vấn</span>
+      <h2>Nhận bảng giá & chính sách mới nhất</h2>
+      <p class="lead">Để lại thông tin, chuyên viên sẽ liên hệ trong vòng 30 phút (8h00 – 21h00) để gửi:</p>
+      <ul class="perks">
+        <li><b>✓</b> Bảng giá và quỹ căn đang mở bán theo phân khu</li>
+        <li><b>✓</b> Bảng tính dòng tiền, phương án vay của căn bạn chọn</li>
+        <li><b>✓</b> Chính sách ưu đãi đang áp dụng, gồm cả ưu đãi đồng hương và VinClub</li>
+        <li><b>✓</b> Lịch tham quan dự án, nhà mẫu, có hỗ trợ đưa đón</li>
+      </ul>
+      <p>Hoặc liên hệ trực tiếp: <a class="js-phone-link" href="#" data-track="form-goi" style="color:#f1c98a;font-weight:700"><span class="js-phone">…</span></a></p>
+    </div>
+
+    <form class="lead-form" id="leadForm" novalidate>
+      <div class="f-grid">
+        <div class="field full"><label for="f-name">Họ và tên *</label><input id="f-name" name="name" autocomplete="name" required maxlength="80" placeholder="Nguyễn Văn A"><div class="err">Vui lòng nhập họ tên</div></div>
+        <div class="field"><label for="f-phone">Số điện thoại *</label><input id="f-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="15" placeholder="09xx xxx xxx"><div class="err">Số điện thoại chưa đúng</div></div>
+        <div class="field"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" maxlength="100" placeholder="ban@email.com"><div class="err">Email chưa đúng</div></div>
+        <div class="field"><label for="f-need">Bạn cần</label>
+          <select id="f-need" name="need"><option>Nhận bảng giá</option><option>Tư vấn chính sách, vay vốn</option><option>Đi xem dự án</option><option>Mua để ở</option><option>Mua đầu tư / cho thuê</option></select></div>
+        <div class="field"><label for="f-product">Sản phẩm quan tâm</label>
+          <select id="f-product" name="product"><option>Chưa xác định</option><option>Nhà liền kề</option><option>Shophouse</option><option>Biệt thự song lập</option><option>Biệt thự đơn lập</option></select></div>
+        <div class="field"><label for="f-budget">Ngân sách dự kiến</label>
+          <select id="f-budget" name="budget"><option>Chưa xác định</option><option>Dưới 7 tỷ</option><option>7 – 10 tỷ</option><option>10 – 15 tỷ</option><option>15 – 25 tỷ</option><option>Trên 25 tỷ</option></select></div>
+        <div class="field"><label for="f-time">Thời gian tiện liên hệ</label>
+          <select id="f-time" name="time"><option>Bất kỳ lúc nào</option><option>Sáng (8h – 12h)</option><option>Chiều (13h – 17h)</option><option>Tối (18h – 21h)</option><option>Chỉ nhắn Zalo</option></select></div>
+        <div class="field full"><label for="f-msg">Lời nhắn</label><textarea id="f-msg" name="message" rows="3" maxlength="500" placeholder="Ví dụ: tôi muốn căn liền kề gần biển, thanh toán theo tiến độ…"></textarea></div>
+        <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <label class="consent full"><input type="checkbox" id="f-consent" checked> Tôi đồng ý để chuyên viên tư vấn liên hệ qua điện thoại, Zalo hoặc email về dự án này, và đã đọc thông báo xử lý dữ liệu cá nhân ở cuối trang.</label>
+        <button class="btn btn-gold full" type="submit" id="f-submit">Gửi thông tin – Nhận bảng giá</button>
+      </div>
+      <div class="form-msg" id="f-msg-box" role="status"></div>
+    </form>
+  </div>
+</section>
+</main>
+
+<footer data-sec="Chân trang">
+  <div class="wrap cols">
+    <div>
+      <h4>Chuyên viên tư vấn dự án Hải Vân Bay</h4>
+      <p><span class="js-advisor">…</span> · Điện thoại / Zalo: <a class="js-phone-link" href="#"><span class="js-phone">…</span></a></p>
+      <p>Đây là trang thông tin do chuyên viên tư vấn (đại lý phân phối) lập, <b>không phải website chính thức của chủ đầu tư</b>. Thông tin, hình minh họa, giá và chính sách chỉ mang tính tham khảo và có thể thay đổi theo từng thời điểm. Giá trị pháp lý căn cứ theo hợp đồng mua bán và các văn bản do chủ đầu tư phát hành. Hồ sơ pháp lý dự án: <a href="https://vinpearl.com/vi/cong-bo-phap-ly/thong-tin-ho-so-phap-ly-du-an-khu-phuc-hop-du-lich-va-do-thi-nghi-duong-lang-van" target="_blank" rel="noopener">công bố của Vinpearl</a>.</p>
+    </div>
+    <div id="du-lieu">
+      <h4>Thông báo xử lý dữ liệu cá nhân</h4>
+      <p>Khi bạn mở trang, hệ thống ghi nhận thông tin kỹ thuật gồm thời điểm truy cập, loại thiết bị, trình duyệt, nguồn truy cập, mã trong đường link và các mục bạn đã xem. Mục đích là cải thiện nội dung và chăm sóc khách hàng tốt hơn. Thông tin bạn tự điền vào form chỉ dùng để tư vấn dự án, không bán hay chia sẻ cho bên thứ ba. Bạn có thể yêu cầu xem, sửa hoặc xóa dữ liệu của mình bất cứ lúc nào qua số điện thoại ở trên (theo Nghị định 13/2023/NĐ-CP).</p>
+    </div>
+  </div>
+</footer>
+
+<div class="float" aria-label="Liên hệ nhanh">
+  <a class="zalo js-zalo" href="#" target="_blank" rel="noopener" data-track="float-zalo" aria-label="Nhắn Zalo">Zalo</a>
+  <a class="call js-phone-link" href="#" data-track="float-goi" aria-label="Gọi điện"><svg width="24" height="24" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 006.6 6.6l2.2-2.2a1 1 0 011-.25 11.4 11.4 0 003.6.57 1 1 0 011 1V20a1 1 0 01-1 1A17 17 0 013 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.25.2 2.45.57 3.57a1 1 0 01-.25 1z"/></svg></a>
+</div>
+<div class="mbar">
+  <a class="btn btn-line js-phone-link" href="#" data-track="mbar-goi">Gọi ngay</a>
+  <a class="btn btn-gold" href="#dang-ky" data-track="mbar-bang-gia">Nhận bảng giá</a>
+</div>
+
+<div class="pop" id="pop" role="dialog" aria-modal="true" aria-labelledby="pop-title">
+  <div class="box">
+    <button class="x" type="button" aria-label="Đóng" id="pop-x">×</button>
+    <h3 id="pop-title">Nhận bảng giá Hải Vân Bay</h3>
+    <p class="note" style="font-size:15px">Quỹ căn và chính sách thay đổi theo từng đợt. Để lại số điện thoại, chuyên viên sẽ gửi bảng giá mới nhất qua Zalo cho bạn.</p>
+    <a class="btn btn-gold" style="width:100%;margin-top:10px" href="#dang-ky" id="pop-go" data-track="popup-nhan-bang-gia">Nhận bảng giá ngay</a>
+  </div>
+</div>
+
+<script>
+/* ============ CẤU HÌNH – SỬA Ở ĐÂY ============ */
+var CONFIG = {
+  endpoint: '',                 // URL Ứng dụng web Google Apps Script (…/exec). Xem README.md
+  phone: '0900000000',          // Số điện thoại hotline của bạn
+  zalo: '0900000000',           // Số Zalo của bạn
+  advisor: 'Chuyên viên tư vấn', // Tên hiển thị ở chân trang
+  popupAfterSeconds: 45         // Hiện lời mời nhận bảng giá sau N giây (0 = tắt)
+};
+</script>
+<script>
+(function(){
+  'use strict';
+  var C = window.CONFIG || {};
+  var $ = function(s, r){ return (r||document).querySelector(s); };
+  var $$ = function(s, r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); };
+  var store = {
+    get: function(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+    set: function(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+  };
+  var rid = function(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); };
+
+  /* ---------- Liên hệ ---------- */
+  var tel = String(C.phone || '').replace(/[^\d+]/g, '');
+  var pretty = tel.replace(/^(\d{4})(\d{3})(\d+)$/, '$1 $2 $3');
+  $$('.js-phone').forEach(function(el){ el.textContent = pretty || 'Đang cập nhật'; });
+  $$('.js-phone-link').forEach(function(el){ el.href = 'tel:' + tel; });
+  $$('.js-zalo').forEach(function(el){ el.href = 'https://zalo.me/' + String(C.zalo || tel).replace(/[^\d]/g, ''); });
+  $$('.js-advisor').forEach(function(el){ el.textContent = C.advisor || ''; });
+
+  /* ---------- Thông tin lượt xem ---------- */
+  var qs = new URLSearchParams(location.search);
+  var vid = store.get('hvb_vid'); if (!vid) { vid = rid(); store.set('hvb_vid', vid); }
+  var visitNo = (parseInt(store.get('hvb_visits'), 10) || 0) + 1; store.set('hvb_visits', String(visitNo));
+  var sid = rid();
+  // Ghi nhớ mã KH / UTM từ lần mở link đầu, để lần sau khách vào thẳng vẫn nhận ra.
+  ['kh','ten','utm_source','utm_medium','utm_campaign','utm_content'].forEach(function(k){
+    if (qs.get(k)) store.set('hvb_' + k, qs.get(k).slice(0, 120));
+  });
+  var p = function(k){ return qs.get(k) || store.get('hvb_' + k) || ''; };
+
+  var ua = navigator.userAgent;
+  var device = /iPad|Tablet/i.test(ua) ? 'Máy tính bảng' : /Mobi|Android|iPhone/i.test(ua) ? 'Điện thoại' : 'Máy tính';
+  var os = /Windows/i.test(ua) ? 'Windows' : /iPhone|iPad|iPod/i.test(ua) ? 'iOS' : /Android/i.test(ua) ? 'Android' : /Mac OS/i.test(ua) ? 'macOS' : /Linux/i.test(ua) ? 'Linux' : 'Khác';
+  var browser = /Zalo/i.test(ua) ? 'Zalo' : /FBAN|FBAV|FB_IAB/i.test(ua) ? 'Facebook' : /CocCoc/i.test(ua) ? 'Cốc Cốc' : /Edg\//i.test(ua) ? 'Edge' : /OPR\//i.test(ua) ? 'Opera' : /SamsungBrowser/i.test(ua) ? 'Samsung' : /Chrome|CriOS/i.test(ua) ? 'Chrome' : /Firefox|FxiOS/i.test(ua) ? 'Firefox' : /Safari/i.test(ua) ? 'Safari' : 'Khác';
+
+  var base = {
+    sid: sid, vid: vid, visitNo: visitNo, kh: p('kh'), ten: p('ten'),
+    utm_source: p('utm_source'), utm_medium: p('utm_medium'), utm_campaign: p('utm_campaign'), utm_content: p('utm_content')
+  };
+
+  function send(payload, useBeacon){
+    var body = JSON.stringify(payload);
+    if (!C.endpoint) { // Chưa cấu hình: giữ tạm trong trình duyệt để không mất dữ liệu khi thử.
+      var q = []; try { q = JSON.parse(store.get('hvb_pending') || '[]'); } catch(e){}
+      q.push(payload); store.set('hvb_pending', JSON.stringify(q.slice(-50)));
+      if (window.console) console.info('[Hải Vân Bay] Chưa cấu hình endpoint, dữ liệu:', payload);
+      return Promise.resolve({ ok: true, local: true });
+    }
+    if (useBeacon && navigator.sendBeacon) {
+      try { if (navigator.sendBeacon(C.endpoint, new Blob([body], { type: 'text/plain' }))) return Promise.resolve({ ok: true }); } catch(e){}
+    }
+    return fetch(C.endpoint, { method: 'POST', body: body, keepalive: body.length < 60000 })
+      .then(function(r){ return r.json(); })
+      .catch(function(){ // Nếu không đọc được phản hồi (CORS), gửi lại ở chế độ no-cors
+        return fetch(C.endpoint, { method: 'POST', mode: 'no-cors', body: body }).then(function(){ return { ok: true, opaque: true }; });
+      });
+  }
+
+  send(Object.assign({ type: 'visit',
+    referrer: document.referrer.slice(0, 300), device: device, os: os, browser: browser,
+    screen: screen.width + 'x' + screen.height, lang: navigator.language || '',
+    tz: (Intl.DateTimeFormat().resolvedOptions().timeZone || ''), url: location.href.slice(0, 300)
+  }, base), true);
+
+  /* ---------- Mức độ quan tâm: thời gian xem, độ cuộn, mục đã xem, nút đã bấm ---------- */
+  var start = Date.now(), active = 0, lastShow = Date.now(), maxScroll = 0, seen = {}, clicks = {};
+  function onScroll(){
+    var h = document.documentElement;
+    var pct = Math.round((h.scrollTop + innerHeight) / h.scrollHeight * 100);
+    if (pct > maxScroll) maxScroll = Math.min(pct, 100);
+  }
+  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if (e.isIntersecting) seen[e.target.getAttribute('data-sec')] = 1; });
+    }, { threshold: 0.35 });
+    $$('[data-sec]').forEach(function(el){ io.observe(el); });
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target.closest && e.target.closest('[data-track]');
+    if (t) clicks[t.getAttribute('data-track')] = 1;
+  });
+  function engage(){
+    var secs = Math.round((active + (document.visibilityState === 'visible' ? Date.now() - lastShow : 0)) / 1000);
+    send(Object.assign({ type: 'engage', seconds: secs, scroll: maxScroll,
+      sections: Object.keys(seen), clicks: Object.keys(clicks) }, base), true);
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'hidden') { active += Date.now() - lastShow; engage(); }
+    else lastShow = Date.now();
+  });
+  addEventListener('pagehide', function(){ if (document.visibilityState === 'visible') { active += Date.now() - lastShow; lastShow = Date.now(); engage(); } });
+  setTimeout(engage, 60000); // Cập nhật giữa chừng cho khách đọc lâu
+
+  /* ---------- Lời chào cá nhân & điền sẵn ---------- */
+  if (base.ten) {
+    var hello = $('#hello');
+    hello.textContent = 'Kính chào Quý khách ' + base.ten + ', đây là thông tin dự án Hải Vân Bay được chuẩn bị riêng cho Quý khách.';
+    hello.style.display = 'block';
+    $('#f-name').value = base.ten;
+  }
+
+  /* ---------- Hiệu ứng xuất hiện ---------- */
+  if ('IntersectionObserver' in window) {
+    var rv = new IntersectionObserver(function(es){
+      es.forEach(function(e){ if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    $$('.reveal').forEach(function(el){ rv.observe(el); });
+  } else $$('.reveal').forEach(function(el){ el.classList.add('in'); });
+
+  /* ---------- Chọn sản phẩm từ nút ---------- */
+  $$('[data-product]').forEach(function(b){
+    b.addEventListener('click', function(){ $('#f-product').value = b.getAttribute('data-product'); });
+  });
+
+  /* ---------- Ước tính khoản vay ---------- */
+  var fmt = function(v){ return v >= 1e9 ? (v / 1e9).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' tỷ' : Math.round(v / 1e6).toLocaleString('vi-VN') + ' triệu'; };
+  function calc(){
+    var price = +$('#c-price').value * 1e9, loanPct = +$('#c-loan').value, years = +$('#c-year').value, rate = +$('#c-rate').value;
+    $('#o-price').textContent = (+$('#c-price').value).toLocaleString('vi-VN');
+    $('#o-loan').textContent = loanPct + '%'; $('#o-year').textContent = years + ' năm'; $('#o-rate').textContent = rate.toLocaleString('vi-VN') + '%';
+    var loan = price * loanPct / 100, n = years * 12, r = rate / 1200;
+    var m = loan ? (r ? loan * r / (1 - Math.pow(1 + r, -n)) : loan / n) : 0;
+    $('#r-month').textContent = m ? fmt(m) + '/tháng' : 'Không vay';
+    $('#r-own').textContent = fmt(price - loan); $('#r-loan').textContent = loan ? fmt(loan) : '0';
+  }
+  $$('.calc input').forEach(function(i){ i.addEventListener('input', calc); });
+  calc();
+
+  /* ---------- Form đăng ký ---------- */
+  var form = $('#leadForm'), box = $('#f-msg-box'), btn = $('#f-submit');
+  function setErr(id, bad){ $(id).closest('.field').classList.toggle('invalid', bad); return bad; }
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var name = $('#f-name').value.trim();
+    var phone = $('#f-phone').value.replace(/[^\d+]/g, '');
+    var email = $('#f-email').value.trim();
+    var bad = setErr('#f-name', name.length < 2);
+    bad = setErr('#f-phone', !/^(\+?84|0)\d{9,10}$/.test(phone)) || bad;
+    bad = setErr('#f-email', !!email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) || bad;
+    if (bad) { box.className = 'form-msg bad'; box.textContent = 'Vui lòng kiểm tra lại các ô được đánh dấu.'; return; }
+    btn.disabled = true; btn.textContent = 'Đang gửi…';
+    var data = Object.assign({ type: 'lead', name: name, phone: phone, email: email,
+      need: $('#f-need').value, product: $('#f-product').value, budget: $('#f-budget').value,
+      time: $('#f-time').value, message: $('#f-msg').value.trim(), consent: $('#f-consent').checked,
+      website: form.website.value }, base);
+    clicks['gui-form'] = 1;
+    send(data).then(function(res){
+      if (res && res.ok === false) throw new Error(res.error || 'error');
+      store.set('hvb_lead', '1');
+      box.className = 'form-msg ok';
+      box.textContent = 'Cảm ơn ' + name + '! Chuyên viên sẽ liên hệ với bạn trong ít phút để gửi bảng giá và chính sách mới nhất.';
+      form.reset(); btn.textContent = 'Đã gửi ✓';
+      engage();
+    }).catch(function(){
+      btn.disabled = false; btn.textContent = 'Gửi thông tin – Nhận bảng giá';
+      box.className = 'form-msg bad';
+      box.textContent = 'Chưa gửi được, bạn vui lòng thử lại hoặc gọi ' + pretty + '.';
+    });
+  });
+
+  /* ---------- Lời mời nhận bảng giá (1 lần, không làm phiền khách đã đăng ký) ---------- */
+  var pop = $('#pop');
+  function closePop(){ pop.classList.remove('show'); }
+  $('#pop-x').addEventListener('click', closePop);
+  $('#pop-go').addEventListener('click', closePop);
+  pop.addEventListener('click', function(e){ if (e.target === pop) closePop(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closePop(); });
+  if (C.popupAfterSeconds > 0 && !store.get('hvb_lead') && !store.get('hvb_popped')) {
+    setTimeout(function(){
+      var formTop = $('#dang-ky').getBoundingClientRect().top;
+      if (formTop < innerHeight) return; // đang ở form rồi
+      store.set('hvb_popped', '1'); pop.classList.add('show'); clicks['popup-hien'] = 1;
+    }, C.popupAfterSeconds * 1000);
+  }
+})();
+</script>
+</body>
+</html>
