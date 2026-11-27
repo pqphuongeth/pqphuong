@@ -224,6 +224,12 @@
         </div>
 
         <div class="card">
+          <div class="card-head"><div><h3 class="income-text">💰 Hoa hồng chưa nhận (theo căn)</h3><div class="muted small">Phần hoa hồng chưa về của từng căn. Chưa tính vào thu nhập và tiền mặt; khi tiền về bấm “Nhận tiền” để ghi vào thu nhập (mục Hoa hồng) và trừ phần còn lại.</div></div></div>
+          <div class="loan-sum" id="commSum"></div>
+          <div id="commList"></div>
+        </div>
+
+        <div class="card">
           <div class="card-head"><div><h3 class="invest-text">🧾 Công nợ phải thu</h3><div class="muted small">Tiền người khác còn nợ bạn, chưa thu được. Danh sách này hiện ở mọi tháng cho tới khi bạn thu được và bấm “Ghi vào sổ”.</div></div></div>
           <div class="fc-list" id="fcList-debt"></div>
           <div class="fc-total" id="fcTotal-debt"></div>
@@ -314,7 +320,7 @@
           <p class="muted small">Ghi chú cho từng hạng mục (sửa trực tiếp, tự lưu). Ghi chú hiện khi chọn hạng mục lúc nhập giao dịch và trên thẻ ngân sách.</p>
           <div class="grid-4">
             <div>
-              <h4 class="income-text" id="incomeCatTitle">10 khoản thu nhập</h4>
+              <h4 class="income-text" id="incomeCatTitle">11 khoản thu nhập</h4>
               <div class="cat-notes" id="incomeCatList"></div>
             </div>
             <div>
@@ -367,6 +373,10 @@
         <span>Danh mục</span>
         <div class="cat-grid" id="catGrid"></div>
         <div class="cat-hint" id="catHint"></div>
+      </div>
+      <div class="field hidden" id="commField">
+        <span>Hoa hồng theo căn</span>
+        <div class="comm-hint"><span id="commText"></span><button type="button" class="link-btn" id="commUnlink">Bỏ liên kết</button></div>
       </div>
       <label class="field hidden" id="loanField">
         <span>Trừ vào khoản nợ</span>

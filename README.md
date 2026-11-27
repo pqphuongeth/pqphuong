@@ -18,8 +18,8 @@ Web app gọn nhẹ, chạy hoàn toàn trên trình duyệt (không cần cài 
 | **Ngân sách** | Đặt hạn mức tháng cho từng khoản chi, thanh tiến độ màu xanh / vàng (≥80%) / đỏ (vượt), tự cảnh báo khi nhập khoản chi vượt hạn mức |
 | **Cài đặt** | Xuất Excel (.xlsx) theo khoảng thời gian, gồm các sheet Tổng quan, Giao dịch, Theo hạng mục, Theo tháng, Ngân sách, Dòng tiền dự kiến (nút ⬇️ Excel ở Thống kê xuất nhanh kỳ đang xem); sao lưu / khôi phục (.json), dữ liệu mẫu, xóa dữ liệu, giao diện sáng/tối |
 
-### 10 khoản thu nhập
-Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng từ bán hàng · Được tặng / Lì xì · Thu nhập khác
+### 11 khoản thu nhập
+Lương · Thưởng · Kinh doanh · Lãi đầu tư / Cổ tức · Lãi tiết kiệm · Cho thuê tài sản · Làm thêm / Freelance · Hoa hồng từ bán hàng · Hoa hồng quản lý · Được tặng / Lì xì · Thu nhập khác
 
 Ngoài ra có mục **Vốn có sẵn / Số dư đầu kỳ** (khi nhập khoản thu) cho tiền có từ trước khi dùng app: cộng vào tiền mặt và tài sản nhưng không tính là thu nhập, nên không làm sai tỷ lệ tiết kiệm.
 
@@ -30,6 +30,8 @@ Nhà ở / Thuê nhà · Gia đình · Bố mẹ · Xăng xe ô tô · Phí xe �
 Trả nợ ngân hàng (gốc) · Trả lãi vay · Thẻ tín dụng / Trả góp · Trả nợ cá nhân / người thân · Trả nợ khác
 
 Trả nợ làm giảm tiền mặt nhưng **không tính là chi tiêu**, nên khoản trả lớn (ví dụ trả ngân hàng) không làm sai thống kê chi tiêu. Trong mục Dòng tiền, khoản "Trả ngân hàng" khi bấm Ghi vào sổ được ghi thành Trả nợ ngân hàng (gốc).
+
+**Hoa hồng chưa nhận (theo căn)** (trong mục Dòng tiền): danh sách phần hoa hồng chưa về của từng căn, chia nhóm Ngoài công ty / Trong công ty – bán hàng / Trong công ty – quản lý. Chưa tính vào thu nhập và tiền mặt; bấm "Nhận tiền" khi tiền về (nhận một phần thì sửa số tiền) để ghi vào thu nhập và trừ phần còn lại. File Excel có sheet "Hoa hồng chưa nhận".
 
 **Dư nợ phải trả** (trong mục Dòng tiền): nhập dư nợ hiện tại của từng khoản vay. Mỗi khoản Trả nợ gắn với khoản vay (chọn ở ô "Trừ vào khoản nợ" khi nhập) được trừ dần vào dư nợ; Trả lãi vay không trừ vào nợ gốc. Tổng quan hiện tổng dư nợ phải trả và tài sản ròng (tài sản − dư nợ); file Excel có sheet "Dư nợ phải trả".
 

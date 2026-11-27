@@ -15,6 +15,7 @@
     { id: 'chothue',     name: 'Cho thuê tài sản',    icon: '🔑', color: '#6366f1' },
     { id: 'freelance',   name: 'Làm thêm / Freelance',icon: '💻', color: '#8b5cf6' },
     { id: 'hoahong',     name: 'Hoa hồng từ bán hàng', icon: '🤝', color: '#a855f7' },
+    { id: 'hhquanly',    name: 'Hoa hồng quản lý',    icon: '🧑‍💼', color: '#9333ea' },
     { id: 'quatang',     name: 'Được tặng / Lì xì',   icon: '🧧', color: '#ec4899' },
     { id: 'thukhac',     name: 'Thu nhập khác',       icon: '💰', color: '#84cc16' },
   ];
@@ -90,9 +91,9 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {}, debts: raw.debts || {}, loans: raw.loans || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {}, debts: raw.debts || {}, loans: raw.loans || {}, commissions: raw.commissions || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {} };
+    return { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {}, commissions: {} };
   }
   function cloudDocs() {
     const docs = { meta: JSON.stringify({ budgets: state.budgets, catNotes: state.catNotes }) };
@@ -102,6 +103,7 @@
     for (const [k, f] of Object.entries(state.forecast || {})) if (fcHasData(f)) docs['f-' + k] = JSON.stringify(f);
     if (Object.keys(state.debts || {}).length) docs.debts = JSON.stringify(state.debts);
     if (Object.keys(state.loans || {}).length) docs.loans = JSON.stringify(state.loans);
+    if (Object.keys(state.commissions || {}).length) docs.commissions = JSON.stringify(state.commissions);
     return docs;
   }
   function queueWrite(id, body) {
@@ -134,14 +136,15 @@
     if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
     cloud = { db, base: 'data/users/' + id };
     storageMode = 'cloud';
-    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {} };
+    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {}, commissions: {} };
     renderCurrent();
     let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
     db.collection(cloud.base).onSnapshot(snap => {
       const tx = [];
-      let budgets = {}, catNotes = {}, debts = {}, loans = {}; const forecast = {};
+      let budgets = {}, catNotes = {}, debts = {}, loans = {}, commissions = {}; const forecast = {};
       for (const d of snap.docs) {
         const body = d.data() || {};
+        if (d.id === 'commissions') { commissions = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id === 'loans') { loans = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id === 'debts') { debts = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id.startsWith('f-')) { forecast[d.id.slice(2)] = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
@@ -150,7 +153,7 @@
         else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
       // Bản cũ lưu công nợ trong từng tháng: chuyển sang danh sách riêng (lần lưu kế tiếp sẽ ghi lại)
-      state = migrateDebts({ transactions: tx, budgets, catNotes, forecast, debts, loans });
+      state = migrateDebts({ transactions: tx, budgets, catNotes, forecast, debts, loans, commissions });
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
       renderCurrent();
     }, () => {
@@ -304,7 +307,7 @@
     const c = catOf(t.cat);
     return `<div class="tx" data-id="${t.id}">
       <div class="tx-ico" style="background:${c.color}22">${c.icon}</div>
-      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'repay' && t.loan && state.loans && state.loans[t.loan] ? ` <span class="tag repay">→ ${esc(loanName(state.loans[t.loan]))}</span>` : ''}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
+      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'income' && t.comm && state.commissions && state.commissions[t.comm] ? ` <span class="tag income">← căn ${esc(state.commissions[t.comm].code)}</span>` : ''}${t.type === 'repay' && t.loan && state.loans && state.loans[t.loan] ? ` <span class="tag repay">→ ${esc(loanName(state.loans[t.loan]))}</span>` : ''}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
       <div class="tx-amt ${t.type}">${txSigned(t)}</div>
       <button class="tx-del" data-del="${t.id}" title="Xóa">🗑️</button>
     </div>`;
@@ -405,8 +408,9 @@
 
     $('#dbBalance').textContent = money(all.net);
     const debtOpen = fcTotals(monthKey(t)).debtOpen;
-    const lt = loansTotal();
+    const lt = loansTotal(), ct = commTotal();
     $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}` + (debtOpen ? ` • Công nợ chưa thu ${money(debtOpen)}` : '')
+      + (ct.remaining ? ` • Hoa hồng chưa nhận ${money(ct.remaining)}` : '')
       + (lt.count ? ` • Dư nợ phải trả ${money(lt.remaining)} • Tài sản ròng ${money(all.net - lt.remaining)}` : '');
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
@@ -611,7 +615,7 @@
     in: [
       { k: 'luong', name: 'Lương', cat: 'luong' },
       { k: 'hhban', name: 'Hoa hồng từ bán hàng (công ty)', cat: 'hoahong' },
-      { k: 'hhql',  name: 'Hoa hồng quản lý (công ty)', cat: 'hoahong' },
+      { k: 'hhql',  name: 'Hoa hồng quản lý (công ty)', cat: 'hhquanly' },
       { k: 'hh1',   name: 'Hoa hồng khác 1', cat: 'hoahong', editable: true },
       { k: 'hh2',   name: 'Hoa hồng khác 2', cat: 'hoahong', editable: true },
       { k: 'khac',  name: 'Thu nhập khác', cat: 'thukhac' },
@@ -676,6 +680,27 @@
     return r;
   }
   const loanName = l => l.name || 'Khoản nợ chưa đặt tên';
+
+  // Hoa hồng chưa nhận theo căn (nhập từ bảng tổng hợp hoa hồng): amount = số chưa nhận lúc nhập.
+  // Khoản thu gắn với căn (t.comm) được trừ dần; tiền chưa về KHÔNG tính vào thu nhập hay tiền mặt.
+  const COMM_GROUPS = { ngoai: 'Ngoài công ty', banhang: 'Trong công ty · Hoa hồng bán hàng', quanly: 'Trong công ty · Hoa hồng quản lý' };
+  const commList = () => Object.entries(state.commissions || {}).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.order || 0) - (b.order || 0));
+  function commInfo(c) {
+    let got = 0, times = 0;
+    for (const t of state.transactions) if (t.type === 'income' && t.comm === c.id) { got += t.amount; times++; }
+    const remaining = Math.max((Number(c.amount) || 0) - got, 0);
+    const total = Number(c.total) || ((Number(c.receivedBefore) || 0) + (Number(c.amount) || 0));
+    return { got, times, remaining, total, receivedAll: total - remaining };
+  }
+  function commTotal() {
+    const r = { remaining: 0, count: 0, byGroup: {} };
+    for (const c of commList()) {
+      const i = commInfo(c); r.remaining += i.remaining; if (i.remaining > 0) r.count++;
+      r.byGroup[c.group] = (r.byGroup[c.group] || 0) + i.remaining;
+    }
+    return r;
+  }
+  const commLabel = c => (c.group === 'quanly' ? c.code : `Hoa hồng căn ${c.code}`);
 
   function migrateDebts(st) {
     st.debts = { ...(st.debts || {}) };
@@ -745,6 +770,26 @@
     if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row')) return;
     for (const side of FC_SIDES) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
     renderLoans();
+    renderComms();
+  }
+  function renderComms() {
+    const list = commList(), el = $('#commList');
+    if (!list.length) { el.innerHTML = '<div class="empty small">Chưa có dữ liệu hoa hồng chưa nhận.</div>'; return; }
+    const groups = {};
+    list.forEach(c => (groups[c.group] ||= []).push(c));
+    el.innerHTML = Object.keys(COMM_GROUPS).filter(g => groups[g]).map(g => {
+      const items = groups[g], sum = items.reduce((a, c) => a + commInfo(c).remaining, 0);
+      return `<div class="comm-group"><div class="comm-group-head"><b>${COMM_GROUPS[g]}</b><span class="income-text num">${money(sum)}</span></div>` +
+        items.map(c => {
+          const i = commInfo(c), p = i.total ? Math.min(i.receivedAll / i.total * 100, 100) : 0;
+          return `<div class="comm-row ${i.remaining ? '' : 'done'}" data-comm="${c.id}">
+            <div class="comm-name"><b>${esc(c.group === 'quanly' ? c.code : c.code)}</b><small class="muted">${esc([c.batch, i.total ? `Tổng HH ${money(i.total)}` : '', `đã nhận ${money(i.receivedAll)}`, c.note].filter(Boolean).join(' · '))}</small></div>
+            <div class="comm-amt"><span class="muted small">${i.remaining ? 'Còn chưa nhận' : 'Đã nhận đủ'}</span><b class="${i.remaining ? 'income-text' : ''}">${money(i.remaining)}</b></div>
+            <div class="comm-actions">${i.remaining ? `<button type="button" class="fc-status in" data-comm-recv="${c.id}">📥 Nhận tiền</button>` : ''}<button type="button" class="icon-btn" data-comm-del="${c.id}" title="Xóa khỏi danh sách">✕</button></div>
+            <div class="bar"><i style="width:${p}%;background:var(--income)"></i></div>
+          </div>`;
+        }).join('') + '</div>';
+    }).join('');
   }
   function loanProgress(l) {
     const i = loanInfo(l), p = i.principal ? Math.min(i.paid / i.principal * 100, 100) : 0;
@@ -786,6 +831,9 @@
     const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
     $('#fcTotal-in').innerHTML = `<span>Tổng tới hạn nhận</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
     renderLoanSum();
+    const ct = commTotal();
+    $('#commSum').innerHTML = `<div class="fc-db">${Object.keys(COMM_GROUPS).map(g => `<div><span class="muted small">${COMM_GROUPS[g]}</span><b>${money(ct.byGroup[g] || 0)}</b></div>`).join('')}
+      <div><span class="muted small">Tổng hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div></div>`;
     $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b>${bar(t.debtAll - t.debtOpen, t.debtAll, 'invest')}`;
     $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
@@ -861,6 +909,20 @@
     $('#fcCopy').addEventListener('click', fcCopyPrev);
     view.addEventListener('input', e => {
       if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
+    });
+    view.addEventListener('click', async e => {
+      const rb = e.target.closest('[data-comm-recv]');
+      if (rb) {
+        const c = { id: rb.dataset.commRecv, ...state.commissions[rb.dataset.commRecv] };
+        openModal(null, { type: 'income', cat: c.group === 'quanly' ? 'hhquanly' : 'hoahong', amount: commInfo(c).remaining, note: commLabel(c), comm: c.id });
+        return;
+      }
+      const db = e.target.closest('[data-comm-del]'); if (!db) return;
+      const id = db.dataset.commDel, c = state.commissions[id];
+      if (!await askConfirm(`Xóa "${c.code}" khỏi danh sách hoa hồng chưa nhận? Các khoản đã ghi nhận vẫn giữ nguyên.`, 'Xóa')) return;
+      const n = { ...state.commissions }; delete n[id]; state.commissions = n;
+      state.transactions.forEach(t => { if (t.comm === id) delete t.comm; });
+      save(); renderCurrent(); toast('🗑️ Đã xóa khỏi danh sách');
     });
     $('#loanAdd').addEventListener('click', () => {
       const id = 'L' + uid();
@@ -948,6 +1010,7 @@
     { id: 'budget',   name: 'Ngân sách' },
     { id: 'forecast', name: 'Dòng tiền dự kiến' },
     { id: 'loans',    name: 'Dư nợ phải trả' },
+    { id: 'comm',     name: 'Hoa hồng chưa nhận' },
   ];
   const MONEY_FMT = '#,##0';
   const xm = v => ({ t: 'n', v: Math.round(v || 0), z: MONEY_FMT });
@@ -1134,6 +1197,23 @@
       }
       add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
     }
+    if (sheetIds.includes('comm')) {
+      const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú']];
+      const list = commList();
+      if (!list.length) rows.push(['Chưa có dữ liệu hoa hồng chưa nhận.']);
+      list.forEach(c => {
+        const i = commInfo(c), row = rows.length + 1;
+        rows.push([COMM_GROUPS[c.group] || c.group, c.code, c.batch || '', xm(i.total), xm(i.receivedAll), xm(i.remaining),
+          { t: 'n', v: i.total ? i.receivedAll / i.total : 0, f: `IF(D${row}=0,0,E${row}/D${row})`, z: '0.0%' }, c.note || '']);
+      });
+      if (list.length) {
+        const last = rows.length, t = list.map(commInfo), n = last + 1;
+        const sum = k => t.reduce((a, i) => a + i[k], 0);
+        rows.push(['TỔNG CỘNG', '', '', xsum('D', 2, last, sum('total')), xsum('E', 2, last, sum('receivedAll')), xsum('F', 2, last, sum('remaining')),
+          { t: 'n', v: sum('total') ? sum('receivedAll') / sum('total') : 0, f: `IF(D${n}=0,0,E${n}/D${n})`, z: '0.0%' }, '']);
+      }
+      add('comm', xSheet(rows, [30, 26, 12, 18, 18, 18, 10, 30], list.length ? [0, rows.length - 2] : null));
+    }
     if (sheetIds.includes('loans')) {
       const rows = [['Khoản nợ', 'Tính từ ngày', 'Dư nợ ban đầu (₫)', 'Đã trả gốc (₫)', 'Lãi đã trả (₫)', 'Còn phải trả (₫)', '% đã trả', 'Ghi chú']];
       const list = loanList();
@@ -1218,20 +1298,22 @@
   }
 
   // ---------------- MODAL GIAO DỊCH ----------------
-  let editingId = null, mType = 'expense', mCat = null, mDir = 'in', mLoan = '';
+  let editingId = null, mType = 'expense', mCat = null, mDir = 'in', mLoan = '', mComm = '';
   const QUICK = [20000, 50000, 100000, 200000, 500000, 1000000, 5000000];
-  function openModal(tx) {
+  // preset: mở sẵn một khoản thu (vd. nhận tiền hoa hồng theo căn) { type, cat, amount, note, comm }
+  function openModal(tx, preset) {
     editingId = tx ? tx.id : null;
-    mType = tx ? tx.type : 'expense';
-    mCat = tx ? tx.cat : null;
+    mType = tx ? tx.type : (preset ? preset.type : 'expense');
+    mCat = tx ? tx.cat : (preset ? preset.cat : null);
+    mComm = tx ? (tx.comm || '') : (preset && preset.comm ? preset.comm : '');
     mDir = tx && tx.dir === 'out' ? 'out' : 'in';
     // Khoản trả nợ mới: nếu chỉ có một khoản nợ còn dư thì chọn sẵn
     const open = loanList().filter(l => loanInfo(l).remaining > 0);
     mLoan = tx ? (tx.loan || '') : (open.length === 1 ? open[0].id : '');
     $('#txModalTitle').textContent = tx ? 'Sửa giao dịch' : 'Thêm giao dịch';
-    $('#txAmount').value = tx ? nf.format(tx.amount) : '';
+    $('#txAmount').value = tx ? nf.format(tx.amount) : (preset && preset.amount ? nf.format(Math.round(preset.amount)) : '');
     $('#txDate').value = tx ? tx.date : keyOf(today());
-    $('#txNote').value = tx ? tx.note || '' : '';
+    $('#txNote').value = tx ? tx.note || '' : (preset && preset.note ? preset.note : '');
     $('#txDelete').classList.toggle('hidden', !tx);
     renderModalType();
     $('#txModal').classList.remove('hidden');
@@ -1247,6 +1329,9 @@
     $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(catNote(c) || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
     const sel = catOf(mCat);
     $('#catHint').textContent = catNote(sel) ? `📝 ${sel.name}: ${catNote(sel)}` : '';
+    const comm = mComm && state.commissions && state.commissions[mComm] && mType === 'income' ? { id: mComm, ...state.commissions[mComm] } : null;
+    $('#commField').classList.toggle('hidden', !comm);
+    if (comm) $('#commText').textContent = `Ghi nhận cho ${commLabel(comm)} · còn chưa nhận ${money(commInfo(comm).remaining + (editingId ? (state.transactions.find(x => x.id === editingId) || {}).amount || 0 : 0))}. Nhận một phần thì sửa lại số tiền.`;
     const showLoan = mType === 'repay' && loanList().length > 0;
     $('#loanField').classList.toggle('hidden', !showLoan);
     if (showLoan) {
@@ -1265,9 +1350,10 @@
     const data = { type: mType, cat: mCat, amount, date, note: $('#txNote').value.trim() };
     if (mType === 'invest') data.dir = mDir;
     if (mType === 'repay' && mLoan && state.loans[mLoan]) data.loan = mLoan;
+    if (mType === 'income' && mComm && state.commissions && state.commissions[mComm]) data.comm = mComm;
     if (editingId) {
       const t = state.transactions.find(x => x.id === editingId);
-      delete t.dir; delete t.loan;
+      delete t.dir; delete t.loan; delete t.comm;
       Object.assign(t, data);
       toast('✅ Đã cập nhật giao dịch');
     } else {
@@ -1276,6 +1362,7 @@
     }
     save(); closeModal(); renderCurrent();
     if (mType === 'expense') checkBudgetAfterSave(data);
+    if (data.comm) { const c = { id: data.comm, ...state.commissions[data.comm] }; setTimeout(() => toast(`💰 ${c.code}: còn chưa nhận ${money(commInfo(c).remaining)}`), 2400); }
     if (data.loan) { const l = { id: data.loan, ...state.loans[data.loan] }; setTimeout(() => toast(`🏦 Dư nợ "${loanName(l)}" còn ${money(loanInfo(l).remaining)}`), 2400); }
   }
   function checkBudgetAfterSave(t) {
@@ -1343,6 +1430,7 @@
     $('#typeToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mType = b.dataset.type; renderModalType(); } });
     $('#dirToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mDir = b.dataset.dir; renderModalType(); } });
     $('#txLoan').addEventListener('change', e => { mLoan = e.target.value; });
+    $('#commUnlink').addEventListener('click', () => { mComm = ''; renderModalType(); });
     $('#catGrid').addEventListener('click', e => { const b = e.target.closest('.cat-btn'); if (b) { mCat = b.dataset.cat; renderModalType(); } });
     $('#txAmount').addEventListener('input', e => { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; });
     $('#quickAmounts').innerHTML = QUICK.map(v => `<button type="button" data-q="${v}">${shortMoney(v)}</button>`).join('');
@@ -1386,7 +1474,7 @@
       try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
       applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast, debts: state.debts, loans: state.loans }, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast, debts: state.debts, loans: state.loans, commissions: state.commissions }, null, 2), 'application/json'));
     $('#xSheets').innerHTML = XL_SHEETS.map(x => `<label class="x-check"><input type="checkbox" id="x-sheet-${x.id}" value="${x.id}" checked /> ${x.name}</label>`).join('');
     ['#xRange', '#xFrom', '#xTo'].forEach(id => $(id).addEventListener('change', xSummary));
     $('#exportXlsx').addEventListener('click', () => {
@@ -1405,12 +1493,18 @@
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
           const valid = d.transactions.map(t => (t ? migrateTx(t) : t)).filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
-            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}), ...(t.type === 'repay' && typeof t.loan === 'string' ? { loan: t.loan } : {}) }));
+            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}), ...(t.type === 'repay' && typeof t.loan === 'string' ? { loan: t.loan } : {}), ...(t.type === 'income' && typeof t.comm === 'string' ? { comm: t.comm } : {}) }));
           e.target.value = '';
           if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
           if (d.catNotes && typeof d.catNotes === 'object') state.catNotes = Object.fromEntries(Object.entries(d.catNotes).filter(([k, v]) => CAT_MAP[k] && typeof v === 'string').map(([k, v]) => [k, v.slice(0, 200)]));
+          state.commissions = {};
+          if (d.commissions && typeof d.commissions === 'object') for (const [id, c] of Object.entries(d.commissions)) {
+            if (!/^[A-Za-z0-9_-]{1,60}$/.test(id) || !c || typeof c !== 'object' || !(Number(c.amount) > 0)) continue;
+            state.commissions[id] = { code: String(c.code || '').slice(0, 40), group: ['ngoai', 'banhang', 'quanly'].includes(c.group) ? c.group : 'banhang', batch: String(c.batch || '').slice(0, 40),
+              total: Number(c.total) || 0, receivedBefore: Number(c.receivedBefore) || 0, amount: Number(c.amount), note: String(c.note || '').slice(0, 120), order: Number(c.order) || 0 };
+          }
           state.loans = {};
           if (d.loans && typeof d.loans === 'object') for (const [id, l] of Object.entries(d.loans)) {
             if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || !l || typeof l !== 'object') continue;
@@ -1454,7 +1548,7 @@
     $('#view-settings').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cat-note-input')) e.target.blur(); });
     $('#clearAll').addEventListener('click', async () => {
       if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
-      state.transactions = []; state.budgets = {}; state.forecast = {}; state.debts = {}; state.loans = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
+      state.transactions = []; state.budgets = {}; state.forecast = {}; state.debts = {}; state.loans = {}; state.commissions = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
     });
 
     let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderCurrent, 250); });

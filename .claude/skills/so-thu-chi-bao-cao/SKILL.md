@@ -28,6 +28,7 @@ Các file nằm ở `<out_dir>/data/users/me/`:
 | `m-YYYY-MM` | `{tx: [...]}` giao dịch của tháng: `type` income/expense/invest/repay, `cat`, `amount`, `date`, `note`, `dir` (đầu tư: `in` rót vốn, `out` rút vốn) |
 | `f-YYYY-MM` | kế hoạch dòng tiền tháng: `in` (tới hạn nhận), `out` (phải chi); mỗi dòng `amount, date, note, label, done` |
 | `debts` | công nợ phải thu (tiền người khác còn nợ, chưa thu): `d1..d5` |
+| `commissions` | hoa hồng chưa nhận theo căn: `{code, group (ngoai / banhang / quanly), batch, total, receivedBefore, amount (số chưa nhận lúc nhập), note}`; khoản thu gắn căn bằng `comm` |
 | `loans` | dư nợ phải trả: mỗi khoản vay `{name, amount (dư nợ ban đầu), date (tính từ ngày), note}`; giao dịch trả nợ gắn khoản vay bằng `loan` |
 | `meta` | `budgets` (hạn mức chi theo hạng mục), `catNotes` |
 
@@ -52,6 +53,7 @@ Quy tắc tính (giống app, script đã làm sẵn; nhắc ở đây để gi�
 - Rót vốn đầu tư làm tiền mặt giảm, rút vốn làm tiền mặt tăng; cả hai không phải thu / chi.
 - **Trả nợ** (`type: repay`: trả nợ ngân hàng, lãi vay, thẻ tín dụng / trả góp, nợ cá nhân, nợ khác) làm tiền mặt giảm nhưng **không tính là chi tiêu**, để khoản trả lớn không làm sai chi tiêu và chi trung bình / ngày.
 - Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ. Tiền mặt = tổng tài sản − đầu tư ròng.
+- **Hoa hồng chưa nhận** của một căn = `amount` − các khoản thu gắn với căn đó (`comm`). Tiền chưa về **không** tính vào thu nhập hay tiền mặt. Thu nhập có riêng mục **Hoa hồng quản lý** (`hhquanly`) bên cạnh Hoa hồng từ bán hàng (`hoahong`).
 - **Dư nợ phải trả** của một khoản vay = dư nợ ban đầu − các khoản trả nợ gắn với khoản đó (từ ngày tính trở đi), **trừ lãi vay** (`tr_laivay` không làm giảm nợ gốc). Tài sản ròng = tổng tài sản − tổng dư nợ.
 - Công nợ phải thu chưa thu **không** tính vào tiền mặt hay tài sản.
 - Chi trung bình / ngày chia cho số ngày **đã qua** trong kỳ, không chia cho cả kỳ.

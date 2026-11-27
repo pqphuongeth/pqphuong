@@ -25,7 +25,7 @@ import argparse, datetime, html, json, pathlib, sys
 
 INCOME = {'luong': 'Lương', 'thuong': 'Thưởng', 'kinhdoanh': 'Kinh doanh', 'dautu': 'Lãi đầu tư / Cổ tức',
           'laitietkiem': 'Lãi tiết kiệm', 'chothue': 'Cho thuê tài sản', 'freelance': 'Làm thêm / Freelance',
-          'hoahong': 'Hoa hồng từ bán hàng', 'quatang': 'Được tặng / Lì xì', 'thukhac': 'Thu nhập khác'}
+          'hoahong': 'Hoa hồng từ bán hàng', 'hhquanly': 'Hoa hồng quản lý', 'quatang': 'Được tặng / Lì xì', 'thukhac': 'Thu nhập khác'}
 CAPITAL = {'vonsan': 'Vốn có sẵn / Số dư đầu kỳ'}
 EXPENSE = {'nhao': 'Nhà ở / Thuê nhà', 'concai': 'Gia đình', 'bome': 'Bố mẹ', 'dilai': 'Xăng xe ô tô', 'phixe': 'Phí xe ô tô',
            'vienthong': 'Điện thoại', 'anuong': 'Ăn uống & cà phê', 'tiepkhach': 'Tiếp khách',
@@ -64,7 +64,7 @@ def line_name(k, l): return l.get('label') or FC_NAMES.get(k) or k
 def load(folder):
     folder = pathlib.Path(folder)
     tx, forecast, debts, budgets, notes = [], {}, {}, {}, {}
-    global LOANS; LOANS = {}
+    global LOANS, COMMS; LOANS = {}; COMMS = {}
     for f in sorted(folder.glob('*.json')):
         body = json.loads(f.read_text(encoding='utf-8'))
         body = body.get('data', body) if isinstance(body, dict) and 'data' in body and 'id' in body else body
@@ -77,6 +77,8 @@ def load(folder):
                 if l and l.get('amount') and k not in debts: debts[k] = l
         elif f.stem == 'debts':
             debts.update({k: v for k, v in body.items() if isinstance(v, dict)})
+        elif f.stem == 'commissions':
+            COMMS.update({k: v for k, v in body.items() if isinstance(v, dict)})
         elif f.stem == 'loans':
             LOANS.update({k: v for k, v in body.items() if isinstance(v, dict)})
         elif f.stem == 'meta':
@@ -99,6 +101,22 @@ def loans_status(tx, upto):
         principal = l.get('amount') or 0
         out.append(dict(id=lid, name=l.get('name') or 'Khoản nợ chưa đặt tên', principal=principal, paid=paid,
                         interest=interest, remaining=max(principal - paid, 0), date=l.get('date'), note=l.get('note') or ''))
+    return out
+
+
+COMMS = {}  # hoa hồng chưa nhận theo căn (tài liệu `commissions`): {id: {code, group, batch, total, receivedBefore, amount, note}}
+COMM_GROUPS = {'ngoai': 'Ngoài công ty', 'banhang': 'Trong công ty · Hoa hồng bán hàng', 'quanly': 'Trong công ty · Hoa hồng quản lý'}
+
+
+def comm_status(tx, upto):
+    """Phần hoa hồng còn chưa nhận: amount (lúc nhập) − các khoản thu gắn căn (t.comm) tới ngày `upto`."""
+    out = []
+    for cid, c in sorted(COMMS.items(), key=lambda kv: kv[1].get('order', 0)):
+        got = sum(t['amount'] for t in tx if t['type'] == 'income' and t.get('comm') == cid and t['date'] <= upto)
+        rem = max((c.get('amount') or 0) - got, 0)
+        total = c.get('total') or ((c.get('receivedBefore') or 0) + (c.get('amount') or 0))
+        out.append(dict(id=cid, code=c.get('code', cid), group=c.get('group', 'banhang'), batch=c.get('batch', ''), total=total,
+                        received=total - rem, remaining=rem, got=got))
     return out
 
 
@@ -184,7 +202,10 @@ def text_day(tx, forecast, debts, budgets, day):
     note = lambda t: f" – {t['note']}" if t.get('note') else ''
     inc = [t for t in r['items'] if t['type'] == 'income' and t['cat'] not in CAPITAL]
     L.append(f"📥 Thu nhập (dòng tiền vào): {vnd(r['income'])}")
-    for t in sorted(inc, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
+    cs = {x['id']: x for x in comm_status(tx, s)}
+    for t in sorted(inc, key=lambda t: -t['amount']):
+        left = f" (căn {cs[t['comm']]['code']} còn chưa nhận {vnd(cs[t['comm']]['remaining'])})" if t.get('comm') in cs else ''
+        L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}{left}")
     # Dòng vốn: tiền vào / ra nhưng không phải thu nhập hay chi tiêu
     cap = [t for t in r['items'] if t['cat'] in CAPITAL or t['type'] == 'invest']
     if cap:
@@ -202,6 +223,7 @@ def text_day(tx, forecast, debts, budgets, day):
         for t in sorted(rep, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
     if not r['count']: L.append("Hôm nay chưa ghi khoản thu chi nào. Nhớ ghi bổ sung trong app.")
     L.append(f"💵 Tiền mặt hiện có: {vnd(pos['cash'])}")
+    if cs: L.append(f"💰 Hoa hồng chưa nhận: {vnd(sum(x['remaining'] for x in cs.values()))}")
     ls = [x for x in loans_status(tx, s) if x['principal']]
     if ls:
         L.append(f"🏦 Dư nợ còn phải trả: {vnd(sum(x['remaining'] for x in ls))}")
@@ -234,6 +256,10 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     L.append(f"💰 Tổng tài sản {vnd(pos['assets'])} · tiền mặt {vnd(pos['cash'])}")
     open_debt = sum(l['amount'] for l in debts.values() if l.get('amount') and not l.get('done'))
     if open_debt: L.append(f"🧾 Công nợ chưa thu: {vnd(open_debt)}")
+    cs = comm_status(tx, b.isoformat())
+    if cs:
+        got = sum(t['amount'] for t in r['items'] if t['type'] == 'income' and t.get('comm'))
+        L.append(f"💰 Hoa hồng chưa nhận: {vnd(sum(x['remaining'] for x in cs))}" + (f" (trong {label} đã nhận {vnd(got)})" if got else ''))
     ls = [x for x in loans_status(tx, b.isoformat()) if x['principal']]
     if ls:
         rem = sum(x['remaining'] for x in ls)
@@ -335,6 +361,25 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
       <tfoot><tr><td colspan="5">Tổng dư nợ phải trả</td><td class="r num neg">{num(rem)}</td></tr></tfoot>
     </table></div></div>
   </section>"""
+    cs = comm_status(tx, B)
+    sec_comm = ''
+    if cs:
+        rows = ''
+        for g, gname in COMM_GROUPS.items():
+            items = [x for x in cs if x['group'] == g]
+            if not items: continue
+            rows += f'<tr><td colspan="5"><b class="pos">{e(gname)}</b> · còn {num(sum(x["remaining"] for x in items))}</td></tr>' + ''.join(
+                f'<tr><td>{e(x["code"])}</td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
+        sec_comm = f"""
+  <section>
+    <h2>Hoa hồng chưa nhận</h2>
+    <p class="section-note">Chưa tính vào thu nhập và tiền mặt cho tới khi nhận.</p>
+    <div class="sheet"><div class="table-wrap"><table>
+      <thead><tr><th>Mã căn / Nội dung</th><th>Đợt</th><th class="r">Tổng hoa hồng</th><th class="r">Đã nhận</th><th class="r">Còn chưa nhận</th></tr></thead>
+      <tbody>{rows}</tbody>
+      <tfoot><tr><td colspan="4">Tổng hoa hồng chưa nhận</td><td class="r num pos">{num(sum(x['remaining'] for x in cs))}</td></tr></tfoot>
+    </table></div></div>
+  </section>"""
     sec_issue = '' if not issues else '<section><h2>Cần xem lại trong app</h2><div class="sheet"><ol class="todo">' + \
         ''.join(f'<li>{e(i)}</li>' for i in issues) + '</ol></div></section>'
 
@@ -371,7 +416,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
       </tbody><tfoot><tr><td>Tiền mặt tăng / giảm</td><td class="r num">{num(r['cash'])}</td></tr></tfoot></table></div></div>
       <div style="display:flex;flex-direction:column;gap:10px;min-width:0"><h3>Chi tiêu theo hạng mục</h3><div class="bars">{bars}</div></div>
     </div></div>
-  </section>{sec_fc}{sec_debt}{sec_loan}
+  </section>{sec_fc}{sec_comm}{sec_debt}{sec_loan}
   {'' if not port else f'<section><h2>Danh mục đầu tư</h2><div class="sheet"><div class="table-wrap"><table style="min-width:0"><thead><tr><th>Danh mục</th><th class="r">Đang đầu tư (₫)</th><th class="r">Tỷ trọng</th></tr></thead><tbody>{port}</tbody></table></div></div></section>'}
   <section>
     <h2>Giao dịch trong {label}</h2>

@@ -335,6 +335,20 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .fc-db-month { display: flex; flex-direction: column; gap: 6px; padding-block: 8px; }
 .fc-db-month + .fc-db-month { border-top: 1px solid var(--border); padding-top: 14px; }
 .fc-db-head { display: flex; justify-content: space-between; align-items: center; }
+.comm-group { display: flex; flex-direction: column; margin-top: 10px; }
+.comm-group-head { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 2px solid var(--border); font-size: .92rem; }
+.comm-group-head span { white-space: nowrap; font-weight: 700; }
+.comm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.comm-row.done { opacity: .6; }
+.comm-row .bar { grid-column: 1 / -1; margin: 0; }
+.comm-name { display: flex; flex-direction: column; min-width: 0; }
+.comm-name small { font-size: .76rem; }
+.comm-amt { display: flex; flex-direction: column; align-items: flex-end; }
+.comm-amt b { font-variant-numeric: tabular-nums; }
+.comm-actions { display: flex; gap: 6px; align-items: center; }
+.comm-actions .icon-btn { width: 32px; height: 32px; font-size: .85rem; }
+.comm-hint { display: flex; justify-content: space-between; gap: 10px; align-items: center; font-size: .85rem; background: var(--income-soft); color: var(--income); padding: 8px 10px; border-radius: 10px; }
+.tag.income { background: var(--income-soft); color: var(--income); }
 .loan-sum { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 2px solid var(--border); }
 .loan-progress { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: .84rem; color: var(--muted); }
 .loan-progress .bar { flex-basis: 100%; }
@@ -488,6 +502,8 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   .field-row { grid-template-columns: 1fr; }
   .budget-total { grid-template-columns: 1fr 1fr; }
   .budget-list { grid-template-columns: 1fr; }
+  .comm-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .comm-actions { grid-column: 1 / -1; justify-content: flex-end; }
   .fc-db b { font-size: .98rem; }
   .fc-db { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .x-grid { grid-template-columns: minmax(0, 1fr); }
