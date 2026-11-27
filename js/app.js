@@ -276,7 +276,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
   }
 
-  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', forecast: 'Dòng tiền hoa hồng & công nợ', budgets: 'Ngân sách', settings: 'Cài đặt' };
+  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', forecast: 'Dòng tiền hoa hồng & dư nợ', budgets: 'Ngân sách', settings: 'Cài đặt' };
   let currentView = 'dashboard';
   function showView(v) {
     currentView = v;
@@ -407,11 +407,10 @@
     const todayS = sumRange(tk, tk);
 
     $('#dbBalance').textContent = money(all.net);
-    const debtOpen = fcTotals(monthKey(t)).debtOpen;
     const lt = loansTotal(), ct = commTotal();
-    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}` + (debtOpen ? ` • Công nợ chưa thu ${money(debtOpen)}` : '')
+    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}`
       + (ct.remaining ? ` • Hoa hồng chưa nhận ${money(ct.remaining)}` : '')
-      + (lt.count ? ` • Dư nợ phải trả ${money(lt.remaining)} • Tài sản ròng ${money(all.net - lt.remaining)}` : '');
+      + (lt.count ? ` • Dư nợ phải trả ${money(lt.remaining)} • Tài sản ròng hiện tại ${money(all.net - lt.remaining)}` : '');
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
@@ -781,13 +780,13 @@
       <button type="button" class="fc-status ${l.done ? 'is-done' : ''} ${side}" data-fc-status>${l.done ? `✅ ${doneText}` : '📥 Ghi vào sổ'}</button>
     </div>`;
   }
-  // Mục Dòng tiền: quản lý dòng tiền hoa hồng, công nợ phải thu, dư nợ phải trả (không còn kế hoạch theo tháng)
+  // Mục Dòng tiền: quản lý dòng tiền hoa hồng và dư nợ phải trả (đã bỏ kế hoạch theo tháng và công nợ phải thu:
+  // tiền người khác còn nợ là hoa hồng, nằm trong danh sách hoa hồng chưa nhận)
   function renderForecast() {
     renderFcSummary();
     // Đang gõ trong bảng thì không vẽ lại các dòng để không mất chữ
     const ae = document.activeElement;
     if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row, .comm-row')) return;
-    $('#fcList-debt').innerHTML = FC_LINES.debt.map(def => fcRow('', 'debt', def)).join('');
     renderLoans();
     renderComms();
   }
@@ -852,37 +851,33 @@
   // Hoa hồng còn chưa nhận có ngày dự kiến nhận trong tháng `mk` (YYYY-MM)
   const commDueIn = mk => commList().reduce((a, c) => a + (c.expected && c.expected.slice(0, 7) <= mk ? commInfo(c).remaining : 0), 0);
   function renderFcSummary() {
-    const t0 = today(), mk = monthKey(t0), t = fcTotals(mk), all = sumRange('0000-00-00', '9999-12-31');
+    const t0 = today(), mk = monthKey(t0), all = sumRange('0000-00-00', '9999-12-31');
     const ct = commTotal(), lt = loansTotal(), due = commDueIn(mk);
     const rc = commReceived(keyOf(new Date(t0.getFullYear(), t0.getMonth(), 1)), keyOf(t0));
-    const net = all.net + ct.remaining + t.debtOpen - lt.remaining;
+    const net = all.net + ct.remaining - lt.remaining;
     $('#fcStats').innerHTML =
       statCard('💰', 'ico-income', 'Hoa hồng chưa nhận', money(ct.remaining), { cls: 'muted', text: `${ct.count} căn / khoản · dự kiến nhận đến hết tháng ${t0.getMonth() + 1}: ${money(due)}` }) +
       statCard('📥', 'ico-income', `Hoa hồng đã nhận tháng ${t0.getMonth() + 1}`, money(rc.sum), { cls: 'muted', text: `${rc.n} lần nhận` }) +
-      statCard('🧾', 'ico-invest', 'Công nợ chưa thu', money(t.debtOpen), { cls: 'muted', text: `${t.debtOpenCount} khoản` }) +
       statCard('🏦', 'ico-repay', 'Dư nợ phải trả', money(lt.remaining), { cls: 'muted', text: `${lt.count} khoản vay · đã trả gốc ${money(lt.paid)}` }) +
-      statCard('💵', 'ico-primary', 'Tiền mặt hiện có', money(all.cash), { cls: 'muted', text: `Nếu thu hết hoa hồng và công nợ: ${money(all.cash + ct.remaining + t.debtOpen)}` }) +
-      statCard('⚖️', 'ico-warn', 'Tài sản ròng (gồm khoản phải thu)', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: 'Tài sản + hoa hồng chưa nhận + công nợ − dư nợ' });
-    const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
+      statCard('💵', 'ico-primary', 'Tiền mặt hiện có', money(all.cash), { cls: 'muted', text: `Nếu nhận hết hoa hồng: ${money(all.cash + ct.remaining)}` }) +
+      statCard('⚖️', 'ico-warn', 'Tài sản ròng nếu nhận hết hoa hồng', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: `Hiện tại ${money(all.net - lt.remaining)} + hoa hồng chưa nhận` });
     renderLoanSum();
     $('#commSum').innerHTML = `<div class="fc-db">${Object.keys(COMM_GROUPS).map(g => `<div><span class="muted small">${COMM_GROUPS[g]}</span><b>${money(ct.byGroup[g] || 0)}</b></div>`).join('')}
       <div><span class="muted small">Tổng hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div></div>`;
-    $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b>${bar(t.debtAll - t.debtOpen, t.debtAll, 'invest')}`;
   }
-  // Ô trên Tổng quan: dòng tiền hoa hồng và công nợ
+  // Ô trên Tổng quan: dòng tiền hoa hồng và dư nợ
   function renderDbForecast() {
-    const t0 = today(), mk = monthKey(t0), ct = commTotal(), lt = loansTotal(), t = fcTotals(mk);
+    const t0 = today(), mk = monthKey(t0), ct = commTotal(), lt = loansTotal();
     const rc = commReceived(keyOf(new Date(t0.getFullYear(), t0.getMonth(), 1)), keyOf(t0));
     const el = $('#dbForecast');
-    if (!ct.remaining && !rc.sum && !t.debtOpen && !lt.count) {
-      el.innerHTML = `<div class="fc-db-empty"><span>Chưa có hoa hồng chưa nhận, công nợ hay khoản vay nào.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Mở mục Dòng tiền</button></div>`;
+    if (!ct.remaining && !rc.sum && !lt.count) {
+      el.innerHTML = `<div class="fc-db-empty"><span>Chưa có hoa hồng chưa nhận hay khoản vay nào.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Mở mục Dòng tiền</button></div>`;
       return;
     }
     el.innerHTML = `<div class="fc-db">
       <div><span class="muted small">Hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div>
       <div><span class="muted small">Đã nhận tháng ${t0.getMonth() + 1}</span><b>${money(rc.sum)}</b></div>
       <div><span class="muted small">Dự kiến nhận đến hết tháng</span><b>${money(commDueIn(mk))}</b></div>
-      <div><span class="muted small">Công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b></div>
       <div><span class="muted small">Dư nợ phải trả</span><b class="repay-text">${money(lt.remaining)}</b></div>
     </div>`;
   }
@@ -1049,7 +1044,6 @@
     { id: 'cat',      name: 'Theo hạng mục' },
     { id: 'month',    name: 'Theo tháng' },
     { id: 'budget',   name: 'Ngân sách' },
-    { id: 'forecast', name: 'Công nợ phải thu' },
     { id: 'loans',    name: 'Dư nợ phải trả' },
     { id: 'comm',     name: 'Hoa hồng chưa nhận' },
   ];
@@ -1202,17 +1196,6 @@
       add('budget', xSheet(rows, [16, 36, 16, 16, 16, 11, 16], limited.length ? [0, rows.length - 1] : null));
     }
 
-    if (sheetIds.includes('forecast')) {
-      const rows = [['Khoản', 'Số tiền (₫)', 'Ngày hẹn trả', 'Ghi chú', 'Trạng thái']];
-      const defs = FC_LINES.debt.filter(def => fcLine('', 'debt', def.k).amount);
-      if (!defs.length) rows.push(['Chưa có công nợ phải thu.']);
-      for (const def of defs) {
-        const l = fcLine('', 'debt', def.k);
-        rows.push([fcName(def, l), xm(l.amount), l.date ? xdate(l.date) : '', l.note || '', l.done ? 'Đã thu' : 'Chưa thu']);
-      }
-      if (defs.length) { const tt = fcTotals(monthKey(today())); rows.push(['Tổng công nợ', xsum('B', 2, rows.length, tt.debtAll)]); rows.push(['Còn chưa thu', xm(tt.debtOpen)]); }
-      add('forecast', xSheet(rows, [36, 18, 14, 40, 14]));
-    }
     if (sheetIds.includes('comm')) {
       const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú', 'Dự kiến nhận']];
       const list = commList();

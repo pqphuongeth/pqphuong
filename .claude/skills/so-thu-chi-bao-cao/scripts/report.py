@@ -5,7 +5,7 @@ Cách dùng:
   python3 report.py --data DIR --mode day|week|month [--date YYYY-MM-DD] \
       [--html OUT.html] [--text OUT.txt] [--title-url URL]
 
-  --data   thư mục có m-YYYY-MM.json, f-YYYY-MM.json, debts.json, meta.json
+  --data   thư mục có m-YYYY-MM.json, commissions.json, loans.json, meta.json
            (đúng như ArtifactData `list` với out_dir lưu ra: .../data/users/me)
   --mode   day   = tổng hợp thu chi trong ngày (dòng tiền vào, tổng chi và từng khoản chi)
            week  = thứ Hai tới ngày --date
@@ -19,7 +19,7 @@ Quy tắc tính (giống app):
   - Đầu tư: dir 'in' = rót vốn (tiền mặt giảm), dir 'out' = rút vốn (tiền mặt tăng).
   - Trả nợ (type 'repay') làm giảm tiền mặt nhưng KHÔNG tính là chi tiêu.
   - Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ; tiền mặt = tổng tài sản − đầu tư ròng.
-  - Công nợ phải thu chưa thu KHÔNG tính vào tiền mặt / tài sản.
+  - Hoa hồng chưa nhận KHÔNG tính vào thu nhập, tiền mặt hay tài sản cho tới khi nhận.
 """
 import argparse, datetime, html, json, pathlib, sys
 
@@ -73,10 +73,9 @@ def load(folder):
                 t = dict(t); t['cat'] = LEGACY.get(t.get('cat'), t.get('cat')); tx.append(t)
         elif f.stem.startswith('f-'):
             # Kế hoạch dòng tiền theo tháng đã bỏ khỏi app: chỉ lấy công nợ còn nằm trong tài liệu tháng (bản cũ)
-            for k, l in (body.get('debt') or {}).items():   # bản cũ: công nợ nằm trong tháng
-                if l and l.get('amount') and k not in debts: debts[k] = l
+            pass
         elif f.stem == 'debts':
-            debts.update({k: v for k, v in body.items() if isinstance(v, dict)})
+            pass   # Công nợ phải thu đã bỏ khỏi app (nằm trong danh sách hoa hồng chưa nhận)
         elif f.stem == 'commissions':
             COMMS.update({k: v for k, v in body.items() if isinstance(v, dict)})
         elif f.stem == 'loans':
@@ -266,7 +265,7 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     ls = [x for x in loans_status(tx, b.isoformat()) if x['principal']]
     if ls:
         rem = sum(x['remaining'] for x in ls)
-        L.append(f"🏦 Dư nợ phải trả: {vnd(rem)} (đã trả gốc {tr(sum(x['paid'] for x in ls))}) · tài sản ròng {vnd(pos['assets'] - rem)}")
+        L.append(f"🏦 Dư nợ phải trả: {vnd(rem)} (đã trả gốc {tr(sum(x['paid'] for x in ls))}) · tài sản ròng hiện tại {vnd(pos['assets'] - rem)}")
     # Hoa hồng dự kiến nhận: 14 ngày tới (báo cáo tuần) hoặc tới cuối tháng (báo cáo tháng)
     horizon = 14 if mode == 'week' else ((b.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - b).days - 1
     nxt = (b + datetime.timedelta(days=horizon)).isoformat()
@@ -396,7 +395,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
   <section>
     <h2>Tóm tắt</h2>
     <p class="lede">{lede}</p>
-    <div class="kpis">{kpi('Tổng tài sản', vnd(pos['assets']), 'tiền mặt + đang đầu tư')}{kpi('Tiền mặt', vnd(pos['cash']), 'sau thu, chi và đầu tư')}{kpi('Đang đầu tư', vnd(pos['invest']), f"{len(pos['port'])} danh mục", 'inv')}{kpi('Công nợ chưa thu', vnd(open_debt), f'{len(open_debts)} khoản', 'inv')}</div>
+    <div class="kpis">{kpi('Tổng tài sản', vnd(pos['assets']), 'tiền mặt + đang đầu tư')}{kpi('Tiền mặt', vnd(pos['cash']), 'sau thu, chi và đầu tư')}{kpi('Đang đầu tư', vnd(pos['invest']), f"{len(pos['port'])} danh mục", 'inv')}{kpi('Hoa hồng chưa nhận', vnd(sum(x['remaining'] for x in comm_status(tx, B))), f"{sum(1 for x in comm_status(tx, B) if x['remaining'])} căn / khoản", 'pos')}</div>
   </section>
   <section>
     <h2>Thu chi trong {label} ({dm(a)}–{dm(b)})</h2>
