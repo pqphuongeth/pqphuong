@@ -72,7 +72,7 @@ def load(folder):
             for t in body.get('tx', []):
                 t = dict(t); t['cat'] = LEGACY.get(t.get('cat'), t.get('cat')); tx.append(t)
         elif f.stem.startswith('f-'):
-            forecast[f.stem[2:]] = body
+            # Kế hoạch dòng tiền theo tháng đã bỏ khỏi app: chỉ lấy công nợ còn nằm trong tài liệu tháng (bản cũ)
             for k, l in (body.get('debt') or {}).items():   # bản cũ: công nợ nằm trong tháng
                 if l and l.get('amount') and k not in debts: debts[k] = l
         elif f.stem == 'debts':
@@ -95,7 +95,7 @@ def loans_status(tx, upto):
     for lid, l in sorted(LOANS.items(), key=lambda kv: kv[1].get('createdAt', 0)):
         paid = interest = 0
         for t in tx:
-            if t['type'] != 'repay' or t.get('loan') != lid or t['date'] > upto or (l.get('date') and t['date'] < l['date']): continue
+            if t['type'] != 'repay' or t.get('loan') != lid or t['date'] > upto: continue   # đã gắn khoản vay thì luôn trừ
             if t['cat'] == 'tr_laivay': interest += t['amount']
             else: paid += t['amount']
         principal = l.get('amount') or 0
@@ -174,6 +174,10 @@ def checks(tx, forecast, debts, budgets, day, a):
             for k, l in (f.get(side) or {}).items():
                 if l.get('amount') and not l.get('done') and l.get('date') and l['date'] < today:
                     out.append(f"“{line_name(k, l)}” ({vnd(l['amount'])}) quá hạn {dmy(l['date'])} nhưng chưa bấm Ghi vào sổ (chưa {word}?).")
+    for x in comm_status(tx, today):
+        exp = COMMS.get(x['id'], {}).get('expected')
+        if x['remaining'] and exp and exp < today:
+            out.append(f"Hoa hồng {x['code']} còn {vnd(x['remaining'])} đã quá ngày dự kiến nhận {dmy(exp)}.")
     for k, l in debts.items():
         if not l.get('amount') and (l.get('label') or l.get('date')):
             out.append(f"Dòng công nợ “{line_name(k, l)}” không có số tiền; nên xóa trống hẳn hoặc nhập số tiền.")
@@ -230,11 +234,10 @@ def text_day(tx, forecast, debts, budgets, day):
         for x in ls:
             if any(t.get('loan') == x['id'] for t in rep): L.append(f"  • {x['name']}: còn {vnd(x['remaining'])}")
     L.append(f"📅 Tháng {day.month}: thu {tr(m['income'])} · chi {tr(m['expense'])} · TB {tr(m['expense'] / day.day)}/ngày")
-    due = [(k, l, 'nhận') for f in forecast.values() for k, l in (f.get('in') or {}).items()] + \
-          [(k, l, 'chi') for f in forecast.values() for k, l in (f.get('out') or {}).items()]
-    soon = [(k, l, w) for k, l, w in due if l.get('amount') and not l.get('done') and l.get('date')
-            and s < l['date'] <= (day + datetime.timedelta(days=3)).isoformat()]
-    for k, l, w in soon: L.append(f"⏰ Sắp tới hạn {w} {dm(l['date'])}: {line_name(k, l)} {vnd(l['amount'])}")
+    soon_to = (day + datetime.timedelta(days=3)).isoformat()
+    for x in comm_status(tx, s):
+        exp = COMMS.get(x['id'], {}).get('expected')
+        if x['remaining'] and exp and s < exp <= soon_to: L.append(f"⏰ Dự kiến nhận {dm(exp)}: hoa hồng {x['code']} {vnd(x['remaining'])}")
     for c in checks(tx, forecast, debts, budgets, day, day)[:3]: L.append('⚠️ ' + c)
     return '\n'.join(L)
 
@@ -264,18 +267,11 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     if ls:
         rem = sum(x['remaining'] for x in ls)
         L.append(f"🏦 Dư nợ phải trả: {vnd(rem)} (đã trả gốc {tr(sum(x['paid'] for x in ls))}) · tài sản ròng {vnd(pos['assets'] - rem)}")
-    # Khoản sắp tới hạn: 14 ngày tới (báo cáo tuần) hoặc tới cuối tháng (báo cáo tháng)
+    # Hoa hồng dự kiến nhận: 14 ngày tới (báo cáo tuần) hoặc tới cuối tháng (báo cáo tháng)
     horizon = 14 if mode == 'week' else ((b.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - b).days - 1
     nxt = (b + datetime.timedelta(days=horizon)).isoformat()
-    for side, w in (('in', 'nhận'), ('out', 'chi')):
-        items = [(k, l) for f in forecast.values() for k, l in (f.get(side) or {}).items()
-                 if l.get('amount') and not l.get('done') and l.get('date') and l['date'] <= nxt]
-        if items:
-            last = max(l['date'] for _, l in items)
-            L.append(f"⏰ Đến {dm(last)} phải {w}: {vnd(sum(l['amount'] for _, l in items))} ({len(items)} khoản)")
-    pin = sum(l['amount'] for f in forecast.values() for l in (f.get('in') or {}).values() if l.get('amount') and not l.get('done') and l.get('date', '9') <= nxt)
-    pout = sum(l['amount'] for f in forecast.values() for l in (f.get('out') or {}).values() if l.get('amount') and not l.get('done') and l.get('date', '9') <= nxt)
-    if pout > pos['cash']: L.append(f"❗ Cần ít nhất {vnd(pout - pos['cash'])} tiền về trước hạn để đủ chi {vnd(pout)}")
+    due = [x for x in comm_status(tx, b.isoformat()) if x['remaining'] and COMMS.get(x['id'], {}).get('expected') and COMMS[x['id']]['expected'] <= nxt]
+    if due: L.append(f"⏰ Hoa hồng dự kiến nhận đến {dm(nxt)}: {vnd(sum(x['remaining'] for x in due))} ({', '.join(x['code'] for x in due[:5])}{'…' if len(due) > 5 else ''})")
     for c in checks(tx, forecast, debts, budgets, day, a)[:4]: L.append('⚠️ ' + c)
     if url: L.append(f"🔗 {url}")
     return '\n'.join(L)
@@ -356,7 +352,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
     <h2>Dư nợ phải trả</h2>
     <p class="section-note">Trả nợ gắn với khoản vay được trừ dần vào dư nợ; lãi vay không trừ vào nợ gốc. Tài sản ròng = tổng tài sản − dư nợ = <b class="num">{vnd(pos['assets'] - rem)}</b>.</p>
     <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Khoản nợ</th><th>Tính từ</th><th class="r">Dư nợ ban đầu</th><th class="r">Đã trả gốc</th><th class="r">Lãi đã trả</th><th class="r">Còn phải trả</th></tr></thead>
+      <thead><tr><th>Khoản nợ</th><th>Ghi nhận</th><th class="r">Dư nợ ban đầu</th><th class="r">Đã trả gốc</th><th class="r">Lãi đã trả</th><th class="r">Còn phải trả</th></tr></thead>
       <tbody>{''.join(f'<tr><td>{e(x["name"])}<br><small class="muted">{e(x["note"])}</small></td><td class="num">{dmy(x["date"]) if x["date"] else "—"}</td><td class="r num">{num(x["principal"])}</td><td class="r num pos">{num(x["paid"])}</td><td class="r num">{num(x["interest"])}</td><td class="r num neg">{num(x["remaining"])}</td></tr>' for x in ls)}</tbody>
       <tfoot><tr><td colspan="5">Tổng dư nợ phải trả</td><td class="r num neg">{num(rem)}</td></tr></tfoot>
     </table></div></div>
@@ -369,7 +365,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
             items = [x for x in cs if x['group'] == g]
             if not items: continue
             rows += f'<tr><td colspan="5"><b class="pos">{e(gname)}</b> · còn {num(sum(x["remaining"] for x in items))}</td></tr>' + ''.join(
-                f'<tr><td>{e(x["code"])}</td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
+                f'<tr><td>{e(x["code"])}<br><small class="muted">{("Dự kiến nhận " + dmy(COMMS[x["id"]]["expected"])) if COMMS.get(x["id"], {}).get("expected") else ""}</small></td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
         sec_comm = f"""
   <section>
     <h2>Hoa hồng chưa nhận</h2>

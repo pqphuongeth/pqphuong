@@ -65,7 +65,7 @@
 
         <div class="card">
           <div class="card-head">
-            <h3>Dòng tiền tới hạn nhận</h3>
+            <h3>Dòng tiền hoa hồng &amp; công nợ</h3>
             <button class="link-btn" data-goto="forecast">Chi tiết →</button>
           </div>
           <div id="dbForecast"></div>
@@ -178,6 +178,11 @@
         </div>
 
         <div class="card">
+          <div class="card-head"><h3>Hoa hồng đã nhận theo căn</h3></div>
+          <div id="rpCommTable"></div>
+        </div>
+
+        <div class="card">
           <div class="card-head"><h3>Đầu tư theo danh mục</h3></div>
           <div class="grid-2">
             <div>
@@ -202,35 +207,29 @@
 
       <!-- ============ NGÂN SÁCH ============ -->
       <section class="view" id="view-forecast">
-        <div class="card report-toolbar">
-          <div>
-            <h3 style="margin:0">Kế hoạch dòng tiền theo tháng</h3>
-            <div class="muted small">Nhập các khoản tới hạn nhận, công nợ phải thu và các khoản phải chi. Khi đã nhận, đã thu hoặc đã chi, bấm “Ghi vào sổ” để tạo giao dịch thật.</div>
-          </div>
-          <div class="period-nav">
-            <button class="icon-btn" id="fcPrev" title="Tháng trước">‹</button>
-            <div class="period-label" id="fcLabel"></div>
-            <button class="icon-btn" id="fcNext" title="Tháng sau">›</button>
-            <button class="btn btn-ghost btn-sm" id="fcCopy">📋 Sao chép tháng trước</button>
-          </div>
-        </div>
-
         <div class="stats-grid" id="fcStats"></div>
 
         <div class="card">
-          <div class="card-head"><h3 class="income-text">📥 Dòng tiền tới hạn nhận</h3></div>
-          <div class="fc-list" id="fcList-in"></div>
-          <div class="fc-total" id="fcTotal-in"></div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><div><h3 class="income-text">💰 Hoa hồng chưa nhận (theo căn)</h3><div class="muted small">Phần hoa hồng chưa về của từng căn. Chưa tính vào thu nhập và tiền mặt; khi tiền về bấm “Nhận tiền” để ghi vào thu nhập (mục Hoa hồng) và trừ phần còn lại.</div></div></div>
+          <div class="card-head">
+            <div><h3 class="income-text">💰 Quản lý dòng tiền hoa hồng</h3><div class="muted small">Hoa hồng chưa nhận theo từng căn / khoản. Chưa tính vào thu nhập và tiền mặt; khi tiền về bấm “Nhận tiền” (nhận một phần thì sửa số tiền) để ghi vào thu nhập, gắn đúng căn và trừ phần còn lại.</div></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="commAddToggle">＋ Thêm căn / khoản</button>
+          </div>
+          <form class="comm-add hidden" id="commAddForm" autocomplete="off">
+            <label class="fc-cell"><span>Mã căn / nội dung</span><input class="input" id="caCode" maxlength="40" placeholder="vd: H3-1806" required /></label>
+            <label class="fc-cell"><span>Nhóm</span><select class="input" id="caGroup"><option value="banhang">Trong công ty · Bán hàng</option><option value="quanly">Trong công ty · Quản lý</option><option value="ngoai">Ngoài công ty</option></select></label>
+            <label class="fc-cell"><span>Đợt</span><input class="input" id="caBatch" maxlength="40" placeholder="vd: Đợt 1" /></label>
+            <label class="fc-cell"><span>Tổng hoa hồng (₫)</span><input class="input fc-amount" id="caTotal" inputmode="numeric" placeholder="0" /></label>
+            <label class="fc-cell"><span>Đã nhận (₫)</span><input class="input fc-amount" id="caRecv" inputmode="numeric" placeholder="0" /></label>
+            <label class="fc-cell"><span>Dự kiến nhận ngày</span><input type="date" class="input" id="caExp" /></label>
+            <label class="fc-cell comm-add-note"><span>Ghi chú</span><input class="input" id="caNote" maxlength="120" placeholder="Ghi chú…" /></label>
+            <div class="comm-add-foot"><button type="button" class="btn btn-ghost btn-sm" id="caCancel">Hủy</button><button type="submit" class="btn btn-primary btn-sm">Thêm vào danh sách</button></div>
+          </form>
           <div class="loan-sum" id="commSum"></div>
           <div id="commList"></div>
         </div>
 
         <div class="card">
-          <div class="card-head"><div><h3 class="invest-text">🧾 Công nợ phải thu</h3><div class="muted small">Tiền người khác còn nợ bạn, chưa thu được. Danh sách này hiện ở mọi tháng cho tới khi bạn thu được và bấm “Ghi vào sổ”.</div></div></div>
+          <div class="card-head"><div><h3 class="invest-text">🧾 Công nợ phải thu</h3><div class="muted small">Tiền người khác còn nợ bạn, chưa thu được. Khi thu được, bấm “Ghi vào sổ” để ghi vào thu nhập.</div></div></div>
           <div class="fc-list" id="fcList-debt"></div>
           <div class="fc-total" id="fcTotal-debt"></div>
         </div>
@@ -244,11 +243,6 @@
           <div class="fc-list" id="loanList"></div>
         </div>
 
-        <div class="card">
-          <div class="card-head"><h3 class="expense-text">📤 Các khoản chi ra dự kiến</h3></div>
-          <div class="fc-list" id="fcList-out"></div>
-          <div class="fc-total" id="fcTotal-out"></div>
-        </div>
       </section>
 
       <section class="view" id="view-budgets">
@@ -375,8 +369,10 @@
         <div class="cat-hint" id="catHint"></div>
       </div>
       <div class="field hidden" id="commField">
-        <span>Hoa hồng theo căn</span>
-        <div class="comm-hint"><span id="commText"></span><button type="button" class="link-btn" id="commUnlink">Bỏ liên kết</button></div>
+        <span>Hoa hồng của căn / khoản nào</span>
+        <select id="txComm" class="input"></select>
+        <input class="input hidden" id="txUnit" maxlength="60" placeholder="Nhập mã căn / phần (vd: VM4-39 · Ngoài công ty)" />
+        <small class="muted" id="commText"></small>
       </div>
       <label class="field hidden" id="loanField">
         <span>Trừ vào khoản nợ</span>

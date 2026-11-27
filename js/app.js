@@ -276,7 +276,7 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
   }
 
-  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', forecast: 'Dòng tiền dự kiến', budgets: 'Ngân sách', settings: 'Cài đặt' };
+  const VIEW_TITLES = { dashboard: 'Tổng quan', transactions: 'Sổ giao dịch', reports: 'Thống kê', forecast: 'Dòng tiền hoa hồng & công nợ', budgets: 'Ngân sách', settings: 'Cài đặt' };
   let currentView = 'dashboard';
   function showView(v) {
     currentView = v;
@@ -307,7 +307,7 @@
     const c = catOf(t.cat);
     return `<div class="tx" data-id="${t.id}">
       <div class="tx-ico" style="background:${c.color}22">${c.icon}</div>
-      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'income' && t.comm && state.commissions && state.commissions[t.comm] ? ` <span class="tag income">← căn ${esc(state.commissions[t.comm].code)}</span>` : ''}${t.type === 'repay' && t.loan && state.loans && state.loans[t.loan] ? ` <span class="tag repay">→ ${esc(loanName(state.loans[t.loan]))}</span>` : ''}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
+      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'income' && t.comm && state.commissions && state.commissions[t.comm] ? ` <span class="tag income">← ${esc(commTag(state.commissions[t.comm]))}</span>` : t.type === 'income' && t.unit ? ` <span class="tag income">← ${esc(t.unit)}</span>` : ''}${t.type === 'repay' && t.loan && state.loans && state.loans[t.loan] ? ` <span class="tag repay">→ ${esc(loanName(state.loans[t.loan]))}</span>` : ''}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
       <div class="tx-amt ${t.type}">${txSigned(t)}</div>
       <button class="tx-del" data-del="${t.id}" title="Xóa">🗑️</button>
     </div>`;
@@ -571,8 +571,26 @@
     $('#rpIncTable').innerHTML = catTable(cur.byCat, INCOME_CATS, cur.income);
     drawPie('rpInvPie', 'rpInvEmpty', cur.byCat, INVEST_CATS);
     $('#rpInvTable').innerHTML = catTable(cur.byCat, INVEST_CATS, INVEST_CATS.reduce((a, c) => a + Math.max(cur.byCat[c.id] || 0, 0), 0));
+    renderRpComm(keyOf(info.start), keyOf(info.end));
     drawPie('rpRepPie', 'rpRepEmpty', cur.byCat, REPAY_CATS);
     $('#rpRepTable').innerHTML = catTable(cur.byCat, REPAY_CATS, cur.repay);
+  }
+
+  function renderRpComm(a, b) {
+    const rows = {};
+    for (const t of state.transactions) {
+      if (t.type !== 'income' || !COMM_CATS.includes(t.cat) || t.date < a || t.date > b) continue;
+      const c = t.comm && state.commissions && state.commissions[t.comm];
+      const key = c ? 'c:' + t.comm : t.unit ? 'u:' + t.unit : 'none';
+      const name = c ? commTag(c) : t.unit || 'Chưa ghi căn';
+      const grp = c ? COMM_GROUPS[c.group] : catOf(t.cat).name;
+      (rows[key] ||= { name, grp, sum: 0, n: 0 }); rows[key].sum += t.amount; rows[key].n++;
+    }
+    const list = Object.values(rows).sort((x, y) => y.sum - x.sum), total = list.reduce((s2, r) => s2 + r.sum, 0);
+    $('#rpCommTable').innerHTML = list.length ? `<div class="cat-table">${list.map(r => `<div class="cat-row"><div class="emoji">🏠</div>
+        <div><div class="name">${esc(r.name)} <small>${esc(r.grp)} · ${r.n} lần</small></div><div class="bar"><i style="width:${r.sum / total * 100}%;background:var(--income)"></i></div></div>
+        <div class="val">${money(r.sum)}</div></div>`).join('')}</div><p class="muted small" style="margin:10px 0 0">Tổng hoa hồng đã nhận trong kỳ: <b>${money(total)}</b></p>`
+      : '<div class="empty small">Không có khoản hoa hồng nào trong kỳ.</div>';
   }
 
   // ---------------- NGÂN SÁCH ----------------
@@ -662,13 +680,14 @@
     }
     return r;
   }
-  // Dư nợ phải trả: mỗi khoản vay có dư nợ ban đầu (tính từ một ngày); giao dịch Trả nợ gắn với khoản vay (t.loan)
+  // Dư nợ phải trả: mỗi khoản vay có dư nợ ban đầu (kèm ngày ghi nhận); giao dịch Trả nợ gắn với khoản vay (t.loan)
   // được trừ dần, trừ "Trả lãi vay" vì lãi không làm giảm nợ gốc.
   const loanList = () => Object.entries(state.loans || {}).map(([id, l]) => ({ id, ...l })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   function loanInfo(l, upto = '9999-12-31') {
     let paid = 0, interest = 0, times = 0;
     for (const t of state.transactions) {
-      if (t.type !== 'repay' || t.loan !== l.id || t.date > upto || (l.date && t.date < l.date)) continue;
+      // Khoản trả đã gắn với khoản vay luôn được trừ (người dùng đã chủ động chọn), không phụ thuộc ngày ghi nhận dư nợ
+      if (t.type !== 'repay' || t.loan !== l.id || t.date > upto) continue;
       if (t.cat === 'tr_laivay') interest += t.amount; else { paid += t.amount; times++; }
     }
     const principal = Number(l.amount) || 0;
@@ -700,6 +719,8 @@
     }
     return r;
   }
+  const COMM_SHORT = { ngoai: 'Ngoài cty', banhang: 'Bán hàng', quanly: 'Quản lý' };
+  const commTag = c => [c.code, c.group === 'quanly' ? '' : COMM_SHORT[c.group], c.group === 'quanly' ? '' : c.batch].filter(Boolean).join(' · ');
   const commLabel = c => (c.group === 'quanly' ? c.code : `Hoa hồng căn ${c.code}`);
 
   function migrateDebts(st) {
@@ -760,17 +781,19 @@
       <button type="button" class="fc-status ${l.done ? 'is-done' : ''} ${side}" data-fc-status>${l.done ? `✅ ${doneText}` : '📥 Ghi vào sổ'}</button>
     </div>`;
   }
+  // Mục Dòng tiền: quản lý dòng tiền hoa hồng, công nợ phải thu, dư nợ phải trả (không còn kế hoạch theo tháng)
   function renderForecast() {
-    const key = fcKeyNow();
-    const fcAnchor = fcA();
-    $('#fcLabel').textContent = `Tháng ${fcAnchor.getMonth() + 1}/${fcAnchor.getFullYear()}`;
     renderFcSummary();
     // Đang gõ trong bảng thì không vẽ lại các dòng để không mất chữ
     const ae = document.activeElement;
-    if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row')) return;
-    for (const side of FC_SIDES) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
+    if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row, .comm-row')) return;
+    $('#fcList-debt').innerHTML = FC_LINES.debt.map(def => fcRow('', 'debt', def)).join('');
     renderLoans();
     renderComms();
+  }
+  function commHistory(c) {
+    const got = state.transactions.filter(t => t.type === 'income' && t.comm === c.id).sort((a, b) => a.date.localeCompare(b.date));
+    return got.length ? `<small class="comm-hist">Đã nhận qua app: ${got.map(t => `${dm(parseKey(t.date))} ${money(t.amount)}`).join(' · ')}</small>` : '';
   }
   function renderComms() {
     const list = commList(), el = $('#commList');
@@ -783,7 +806,9 @@
         items.map(c => {
           const i = commInfo(c), p = i.total ? Math.min(i.receivedAll / i.total * 100, 100) : 0;
           return `<div class="comm-row ${i.remaining ? '' : 'done'}" data-comm="${c.id}">
-            <div class="comm-name"><b>${esc(c.group === 'quanly' ? c.code : c.code)}</b><small class="muted">${esc([c.batch, i.total ? `Tổng HH ${money(i.total)}` : '', `đã nhận ${money(i.receivedAll)}`, c.note].filter(Boolean).join(' · '))}</small></div>
+            <div class="comm-name"><b>${esc(c.code)}</b><small class="muted">${esc([c.batch, i.total ? `Tổng HH ${money(i.total)}` : '', `đã nhận ${money(i.receivedAll)}`, c.note].filter(Boolean).join(' · '))}</small>
+              ${commHistory(c)}
+              ${i.remaining ? `<label class="comm-exp-wrap">Dự kiến nhận <input type="date" class="input comm-exp" id="comm-${c.id}-exp" value="${esc(c.expected || '')}" /></label>` : ''}</div>
             <div class="comm-amt"><span class="muted small">${i.remaining ? 'Còn chưa nhận' : 'Đã nhận đủ'}</span><b class="${i.remaining ? 'income-text' : ''}">${money(i.remaining)}</b></div>
             <div class="comm-actions">${i.remaining ? `<button type="button" class="fc-status in" data-comm-recv="${c.id}">📥 Nhận tiền</button>` : ''}<button type="button" class="icon-btn" data-comm-del="${c.id}" title="Xóa khỏi danh sách">✕</button></div>
             <div class="bar"><i style="width:${p}%;background:var(--income)"></i></div>
@@ -802,7 +827,7 @@
     $('#loanList').innerHTML = list.length ? list.map(l => `<div class="fc-row loan-row" data-loan="${l.id}">
       <div class="fc-name"><input class="input fc-label loan-name" id="loan-${l.id}-name" maxlength="60" placeholder="Tên khoản nợ (vd: Vay mua nhà ngân hàng)" value="${esc(l.name || '')}" aria-label="Tên khoản nợ" /></div>
       <label class="fc-cell"><span>Dư nợ ban đầu (₫)</span><input class="input fc-amount loan-amount" id="loan-${l.id}-amount" inputmode="numeric" placeholder="0" value="${l.amount ? nf.format(l.amount) : ''}" /></label>
-      <label class="fc-cell"><span>Tính từ ngày</span><input type="date" class="input loan-date" id="loan-${l.id}-date" value="${esc(l.date || '')}" /></label>
+      <label class="fc-cell"><span>Ngày ghi nhận</span><input type="date" class="input loan-date" id="loan-${l.id}-date" value="${esc(l.date || '')}" /></label>
       <label class="fc-cell fc-note-cell"><span>Ghi chú</span><input class="input loan-note" id="loan-${l.id}-note" maxlength="120" placeholder="Lãi suất, kỳ hạn…" value="${esc(l.note || '')}" /></label>
       <button type="button" class="fc-status loan-del" data-loan-del="${l.id}">🗑️ Xóa</button>
       <div class="loan-progress" id="loan-${l.id}-prog">${loanProgress(l)}</div>
@@ -817,48 +842,49 @@
       <div><span class="muted small">Tổng dư nợ phải trả</span><b class="repay-text">${money(t.remaining)}</b></div>
     </div><div class="bar thick"><i style="width:${t.principal ? Math.min(t.paid / t.principal * 100, 100) : 0}%;background:var(--repay)"></i></div>`;
   }
+  const COMM_CATS = ['hoahong', 'hhquanly'];
+  // Hoa hồng đã nhận trong khoảng ngày (khoản thu mục Hoa hồng từ bán hàng / Hoa hồng quản lý)
+  function commReceived(a, b) {
+    let sum = 0, n = 0;
+    for (const t of state.transactions) if (t.type === 'income' && COMM_CATS.includes(t.cat) && t.date >= a && t.date <= b) { sum += t.amount; n++; }
+    return { sum, n };
+  }
+  // Hoa hồng còn chưa nhận có ngày dự kiến nhận trong tháng `mk` (YYYY-MM)
+  const commDueIn = mk => commList().reduce((a, c) => a + (c.expected && c.expected.slice(0, 7) <= mk ? commInfo(c).remaining : 0), 0);
   function renderFcSummary() {
-    const key = fcKeyNow(), t = fcTotals(key);
-    const all = sumRange('0000-00-00', '9999-12-31');
-    const net = t.in + t.debt - t.out;
-    const projected = all.cash + t.inPending + t.debtPending - t.outPending;
+    const t0 = today(), mk = monthKey(t0), t = fcTotals(mk), all = sumRange('0000-00-00', '9999-12-31');
+    const ct = commTotal(), lt = loansTotal(), due = commDueIn(mk);
+    const rc = commReceived(keyOf(new Date(t0.getFullYear(), t0.getMonth(), 1)), keyOf(t0));
+    const net = all.net + ct.remaining + t.debtOpen - lt.remaining;
     $('#fcStats').innerHTML =
-      statCard('📥', 'ico-income', 'Tới hạn nhận', money(t.in), { cls: 'muted', text: `Đã nhận ${money(t.inDone)} • Còn chờ ${money(t.inPending)}` }) +
-      statCard('🧾', 'ico-invest', 'Công nợ chưa thu', money(t.debtOpen), { cls: 'muted', text: `${t.debtOpenCount} khoản • Hẹn trả trong tháng này ${money(t.debtPending)}` }) +
-      statCard('📤', 'ico-expense', 'Dự kiến chi ra', money(t.out), { cls: 'muted', text: `Đã chi ${money(t.outDone)} • Còn phải chi ${money(t.outPending)}` }) +
-      statCard('⚖️', 'ico-primary', 'Chênh lệch dự kiến', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: `Nhận + nợ hẹn trả trong tháng − chi: ${net >= 0 ? 'dư tiền' : 'thiếu tiền'}` }) +
-      statCard('💵', 'ico-warn', 'Tiền mặt sau khi thu/chi hết', money(projected), { cls: projected >= 0 ? 'muted' : 'up-bad', text: `Tiền mặt hiện có ${money(all.cash)}` });
+      statCard('💰', 'ico-income', 'Hoa hồng chưa nhận', money(ct.remaining), { cls: 'muted', text: `${ct.count} căn / khoản · dự kiến nhận đến hết tháng ${t0.getMonth() + 1}: ${money(due)}` }) +
+      statCard('📥', 'ico-income', `Hoa hồng đã nhận tháng ${t0.getMonth() + 1}`, money(rc.sum), { cls: 'muted', text: `${rc.n} lần nhận` }) +
+      statCard('🧾', 'ico-invest', 'Công nợ chưa thu', money(t.debtOpen), { cls: 'muted', text: `${t.debtOpenCount} khoản` }) +
+      statCard('🏦', 'ico-repay', 'Dư nợ phải trả', money(lt.remaining), { cls: 'muted', text: `${lt.count} khoản vay · đã trả gốc ${money(lt.paid)}` }) +
+      statCard('💵', 'ico-primary', 'Tiền mặt hiện có', money(all.cash), { cls: 'muted', text: `Nếu thu hết hoa hồng và công nợ: ${money(all.cash + ct.remaining + t.debtOpen)}` }) +
+      statCard('⚖️', 'ico-warn', 'Tài sản ròng (gồm khoản phải thu)', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: 'Tài sản + hoa hồng chưa nhận + công nợ − dư nợ' });
     const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
-    $('#fcTotal-in').innerHTML = `<span>Tổng tới hạn nhận</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
     renderLoanSum();
-    const ct = commTotal();
     $('#commSum').innerHTML = `<div class="fc-db">${Object.keys(COMM_GROUPS).map(g => `<div><span class="muted small">${COMM_GROUPS[g]}</span><b>${money(ct.byGroup[g] || 0)}</b></div>`).join('')}
       <div><span class="muted small">Tổng hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div></div>`;
     $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b>${bar(t.debtAll - t.debtOpen, t.debtAll, 'invest')}`;
-    $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
-  // Ô trên Tổng quan: tháng này và tháng tới (tháng nào có kế hoạch thì hiện)
+  // Ô trên Tổng quan: dòng tiền hoa hồng và công nợ
   function renderDbForecast() {
-    const t0 = today(), el = $('#dbForecast');
-    const months = [0, 1].map(i => new Date(t0.getFullYear(), t0.getMonth() + i, 1))
-      .map(d => ({ d, key: monthKey(d), t: fcTotals(monthKey(d)) })).filter(x => x.t.in || x.t.out || x.t.debt);
-    const open = fcTotals(monthKey(t0));
-    const debtHtml = open.debtOpen ? `<div class="fc-db-month">
-      <div class="fc-db-head"><b>🧾 Công nợ phải thu (chưa thu)</b><button class="link-btn" data-goto="forecast">Xem →</button></div>
-      <div class="fc-db-debt"><b class="invest-text">${money(open.debtOpen)}</b><span class="muted small">${open.debtOpenCount} khoản người khác còn nợ bạn</span></div></div>` : '';
-    if (!months.length && debtHtml) { el.innerHTML = debtHtml; return; }
-    if (!months.length) {
-      el.innerHTML = `<div class="fc-db-empty"><span>Chưa lập kế hoạch dòng tiền cho tháng này và tháng tới.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Lập kế hoạch</button></div>`;
+    const t0 = today(), mk = monthKey(t0), ct = commTotal(), lt = loansTotal(), t = fcTotals(mk);
+    const rc = commReceived(keyOf(new Date(t0.getFullYear(), t0.getMonth(), 1)), keyOf(t0));
+    const el = $('#dbForecast');
+    if (!ct.remaining && !rc.sum && !t.debtOpen && !lt.count) {
+      el.innerHTML = `<div class="fc-db-empty"><span>Chưa có hoa hồng chưa nhận, công nợ hay khoản vay nào.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Mở mục Dòng tiền</button></div>`;
       return;
     }
-    el.innerHTML = months.map(({ d, key, t }) => `<div class="fc-db-month">
-      <div class="fc-db-head"><b>Tháng ${d.getMonth() + 1}/${d.getFullYear()}</b><button class="link-btn" data-fc-open="${key}">Mở →</button></div>
-      <div class="fc-db">
-        <div><span class="muted small">Tới hạn nhận</span><b class="income-text">${money(t.in)}</b></div>
-        <div><span class="muted small">Nợ hẹn trả trong tháng</span><b class="invest-text">${money(t.debt)}</b></div>
-        <div><span class="muted small">Dự kiến chi ra</span><b class="expense-text">${money(t.out)}</b></div>
-        <div><span class="muted small">Chênh lệch</span><b class="${t.in + t.debt - t.out >= 0 ? 'income-text' : 'expense-text'}">${money(t.in + t.debt - t.out)}</b></div>
-      </div></div>`).join('') + debtHtml;
+    el.innerHTML = `<div class="fc-db">
+      <div><span class="muted small">Hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div>
+      <div><span class="muted small">Đã nhận tháng ${t0.getMonth() + 1}</span><b>${money(rc.sum)}</b></div>
+      <div><span class="muted small">Dự kiến nhận đến hết tháng</span><b>${money(commDueIn(mk))}</b></div>
+      <div><span class="muted small">Công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b></div>
+      <div><span class="muted small">Dư nợ phải trả</span><b class="repay-text">${money(lt.remaining)}</b></div>
+    </div>`;
   }
   async function fcToggleDone(side, k) {
     const key = fcKeyNow(), def = FC_LINES[side].find(x => x.k === k), l = fcLine(key, side, k), c = catOf(def.cat);
@@ -900,13 +926,23 @@
   }
   function bindForecast() {
     const view = $('#view-forecast');
-    $('#fcPrev').addEventListener('click', () => { const a = fcA(); fcPicked = new Date(a.getFullYear(), a.getMonth() - 1, 1); renderForecast(); });
-    $('#fcNext').addEventListener('click', () => { const a = fcA(); fcPicked = new Date(a.getFullYear(), a.getMonth() + 1, 1); renderForecast(); });
+    $('#commAddToggle').addEventListener('click', () => { $('#commAddForm').classList.toggle('hidden'); if (!$('#commAddForm').classList.contains('hidden')) $('#caCode').focus(); });
+    $('#caCancel').addEventListener('click', () => { $('#commAddForm').reset(); $('#commAddForm').classList.add('hidden'); });
+    $('#commAddForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const code = $('#caCode').value.trim(), total = parseAmount($('#caTotal').value), recv = parseAmount($('#caRecv').value);
+      if (!code) return toast('Nhập mã căn hoặc nội dung');
+      if (!(total > recv)) return toast('Tổng hoa hồng phải lớn hơn số đã nhận');
+      const id = 'c' + uid(), order = commList().reduce((m, c) => Math.max(m, c.order || 0), 0) + 1;
+      state.commissions = { ...(state.commissions || {}), [id]: { code, group: $('#caGroup').value, batch: $('#caBatch').value.trim(), total, receivedBefore: recv,
+        amount: total - recv, expected: $('#caExp').value || '', note: $('#caNote').value.trim(), order } };
+      save(); $('#commAddForm').reset(); $('#commAddForm').classList.add('hidden'); renderForecast();
+      toast(`💰 Đã thêm ${code}: chưa nhận ${money(total - recv)}`);
+    });
     document.addEventListener('click', e => {
       const b = e.target.closest('[data-fc-open]'); if (!b) return;
       const [y, m] = b.dataset.fcOpen.split('-').map(Number); fcPicked = new Date(y, m - 1, 1); showView('forecast');
     });
-    $('#fcCopy').addEventListener('click', fcCopyPrev);
     view.addEventListener('input', e => {
       if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
     });
@@ -939,6 +975,11 @@
       save(); renderCurrent(); toast('🗑️ Đã xóa khoản nợ');
     });
     view.addEventListener('change', e => {
+      if (e.target.classList.contains('comm-exp')) {
+        const id = e.target.closest('.comm-row').dataset.comm;
+        state.commissions = { ...state.commissions, [id]: { ...state.commissions[id], expected: e.target.value } };
+        save(); renderFcSummary(); return;
+      }
       const lr = e.target.closest('.loan-row');
       if (lr) {
         const id = lr.dataset.loan, cls = e.target.classList, cur = state.loans[id]; if (!cur) return;
@@ -1008,7 +1049,7 @@
     { id: 'cat',      name: 'Theo hạng mục' },
     { id: 'month',    name: 'Theo tháng' },
     { id: 'budget',   name: 'Ngân sách' },
-    { id: 'forecast', name: 'Dòng tiền dự kiến' },
+    { id: 'forecast', name: 'Công nợ phải thu' },
     { id: 'loans',    name: 'Dư nợ phải trả' },
     { id: 'comm',     name: 'Hoa hồng chưa nhận' },
   ];
@@ -1106,7 +1147,8 @@
       for (const x of txs) {
         const c = catOf(x.cat), type = isCapital(x) ? 'Vốn có sẵn' : TYPE_NAMES[x.type] + (x.type === 'invest' ? (x.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : '');
         rows.push([xdate(x.date), type, c.name, x.type === 'income' ? xm(x.amount) : '', x.type === 'expense' ? xm(x.amount) : '',
-          x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.type === 'repay' ? xm(x.amount) : '', x.note || '']);
+          x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.type === 'repay' ? xm(x.amount) : '',
+          [x.note, x.comm && state.commissions && state.commissions[x.comm] ? `[${commTag(state.commissions[x.comm])}]` : x.unit ? `[${x.unit}]` : ''].filter(Boolean).join(' ')]);
       }
       const last = rows.length;
       rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income + r.capital), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), xsum('G', 2, last, r.repay), '']);
@@ -1161,50 +1203,24 @@
     }
 
     if (sheetIds.includes('forecast')) {
-      const rows = [['Tháng', 'Loại', 'Khoản', 'Số tiền (₫)', 'Ngày dự kiến', 'Ghi chú', 'Trạng thái']];
-      const fm = new Set(months.filter(mk => state.forecast[mk]));
-      const tk = keyOf(today());
-      if (tk >= fromKey && tk <= toKey) { const nx = monthKey(new Date(today().getFullYear(), today().getMonth() + 1, 1)); if (state.forecast[nx]) fm.add(nx); }
-      if (!fm.size && !Object.keys(state.debts || {}).length) rows.push(['Chưa có kế hoạch dòng tiền cho các tháng trong khoảng này.']);
-      for (const mk of [...fm].sort()) {
-        const t = fcTotals(mk), first = {};
-        for (const side of FC_MONTH_SIDES) {
-          first[side] = rows.length + 1;
-          for (const def of FC_LINES[side]) {
-            const l = fcLine(mk, side, def.k);
-            if (!l.amount && !l.note && !l.label && !l.date) continue;
-            rows.push([mLabel(mk), FC_TEXT[side].group, fcName(def, l), xm(l.amount || 0), l.date ? xdate(l.date) : '', l.note || '',
-              l.done ? FC_TEXT[side].done : 'Chưa thực hiện']);
-          }
-          first[side + 'End'] = rows.length;
-        }
-        const ri = rows.length + 1;
-        rows.push([mLabel(mk), 'Tổng tới hạn nhận', '', xsum('D', first.in, first.inEnd, t.in)]);
-        rows.push([mLabel(mk), 'Tổng dự kiến chi', '', xsum('D', first.out, first.outEnd, t.out)]);
-        rows.push([mLabel(mk), 'Chênh lệch (nhận − chi)', '', { t: 'n', v: t.in - t.out, f: `D${ri}-D${ri + 1}`, z: MONEY_FMT }]);
-        rows.push([]);
+      const rows = [['Khoản', 'Số tiền (₫)', 'Ngày hẹn trả', 'Ghi chú', 'Trạng thái']];
+      const defs = FC_LINES.debt.filter(def => fcLine('', 'debt', def.k).amount);
+      if (!defs.length) rows.push(['Chưa có công nợ phải thu.']);
+      for (const def of defs) {
+        const l = fcLine('', 'debt', def.k);
+        rows.push([fcName(def, l), xm(l.amount), l.date ? xdate(l.date) : '', l.note || '', l.done ? 'Đã thu' : 'Chưa thu']);
       }
-      const debtDefs = FC_LINES.debt.filter(def => fcLine('', 'debt', def.k).amount);
-      if (debtDefs.length) {
-        const d0 = rows.length + 1;
-        for (const def of debtDefs) {
-          const l = fcLine('', 'debt', def.k);
-          rows.push(['Công nợ', 'Công nợ phải thu', fcName(def, l), xm(l.amount), l.date ? xdate(l.date) : '', l.note || '', l.done ? 'Đã thu' : 'Chưa thu']);
-        }
-        const tt = fcTotals(monthKey(today()));
-        rows.push(['Công nợ', 'Tổng công nợ', '', xsum('D', d0, rows.length, tt.debtAll)]);
-        rows.push(['Công nợ', 'Còn chưa thu', '', xm(tt.debtOpen)]);
-      }
-      add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
+      if (defs.length) { const tt = fcTotals(monthKey(today())); rows.push(['Tổng công nợ', xsum('B', 2, rows.length, tt.debtAll)]); rows.push(['Còn chưa thu', xm(tt.debtOpen)]); }
+      add('forecast', xSheet(rows, [36, 18, 14, 40, 14]));
     }
     if (sheetIds.includes('comm')) {
-      const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú']];
+      const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú', 'Dự kiến nhận']];
       const list = commList();
       if (!list.length) rows.push(['Chưa có dữ liệu hoa hồng chưa nhận.']);
       list.forEach(c => {
         const i = commInfo(c), row = rows.length + 1;
         rows.push([COMM_GROUPS[c.group] || c.group, c.code, c.batch || '', xm(i.total), xm(i.receivedAll), xm(i.remaining),
-          { t: 'n', v: i.total ? i.receivedAll / i.total : 0, f: `IF(D${row}=0,0,E${row}/D${row})`, z: '0.0%' }, c.note || '']);
+          { t: 'n', v: i.total ? i.receivedAll / i.total : 0, f: `IF(D${row}=0,0,E${row}/D${row})`, z: '0.0%' }, c.note || '', c.expected ? xdate(c.expected) : '']);
       });
       if (list.length) {
         const last = rows.length, t = list.map(commInfo), n = last + 1;
@@ -1212,10 +1228,10 @@
         rows.push(['TỔNG CỘNG', '', '', xsum('D', 2, last, sum('total')), xsum('E', 2, last, sum('receivedAll')), xsum('F', 2, last, sum('remaining')),
           { t: 'n', v: sum('total') ? sum('receivedAll') / sum('total') : 0, f: `IF(D${n}=0,0,E${n}/D${n})`, z: '0.0%' }, '']);
       }
-      add('comm', xSheet(rows, [30, 26, 12, 18, 18, 18, 10, 30], list.length ? [0, rows.length - 2] : null));
+      add('comm', xSheet(rows, [30, 26, 12, 18, 18, 18, 10, 30, 14], list.length ? [0, rows.length - 2] : null));
     }
     if (sheetIds.includes('loans')) {
-      const rows = [['Khoản nợ', 'Tính từ ngày', 'Dư nợ ban đầu (₫)', 'Đã trả gốc (₫)', 'Lãi đã trả (₫)', 'Còn phải trả (₫)', '% đã trả', 'Ghi chú']];
+      const rows = [['Khoản nợ', 'Ngày ghi nhận', 'Dư nợ ban đầu (₫)', 'Đã trả gốc (₫)', 'Lãi đã trả (₫)', 'Còn phải trả (₫)', '% đã trả', 'Ghi chú']];
       const list = loanList();
       if (!list.length) rows.push(['Chưa có khoản nợ nào.']);
       list.forEach(l => {
@@ -1298,14 +1314,15 @@
   }
 
   // ---------------- MODAL GIAO DỊCH ----------------
-  let editingId = null, mType = 'expense', mCat = null, mDir = 'in', mLoan = '', mComm = '';
+  let editingId = null, mType = 'expense', mCat = null, mDir = 'in', mLoan = '', mComm = '', mUnit = '';
   const QUICK = [20000, 50000, 100000, 200000, 500000, 1000000, 5000000];
   // preset: mở sẵn một khoản thu (vd. nhận tiền hoa hồng theo căn) { type, cat, amount, note, comm }
   function openModal(tx, preset) {
     editingId = tx ? tx.id : null;
     mType = tx ? tx.type : (preset ? preset.type : 'expense');
     mCat = tx ? tx.cat : (preset ? preset.cat : null);
-    mComm = tx ? (tx.comm || '') : (preset && preset.comm ? preset.comm : '');
+    mComm = tx ? (tx.comm || (tx.unit ? '__other' : '')) : (preset && preset.comm ? preset.comm : '');
+    mUnit = tx ? (tx.unit || '') : '';
     mDir = tx && tx.dir === 'out' ? 'out' : 'in';
     // Khoản trả nợ mới: nếu chỉ có một khoản nợ còn dư thì chọn sẵn
     const open = loanList().filter(l => loanInfo(l).remaining > 0);
@@ -1329,9 +1346,25 @@
     $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(catNote(c) || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
     const sel = catOf(mCat);
     $('#catHint').textContent = catNote(sel) ? `📝 ${sel.name}: ${catNote(sel)}` : '';
-    const comm = mComm && state.commissions && state.commissions[mComm] && mType === 'income' ? { id: mComm, ...state.commissions[mComm] } : null;
-    $('#commField').classList.toggle('hidden', !comm);
-    if (comm) $('#commText').textContent = `Ghi nhận cho ${commLabel(comm)} · còn chưa nhận ${money(commInfo(comm).remaining + (editingId ? (state.transactions.find(x => x.id === editingId) || {}).amount || 0 : 0))}. Nhận một phần thì sửa lại số tiền.`;
+    // Khoản thu Hoa hồng: chọn căn / khoản trong danh sách hoa hồng (đúng nhóm) hoặc ghi mã căn khác
+    const isComm = mType === 'income' && COMM_CATS.includes(mCat);
+    $('#commField').classList.toggle('hidden', !isComm);
+    if (isComm) {
+      const groups = mCat === 'hhquanly' ? ['quanly'] : ['banhang', 'ngoai'];
+      const items = commList().filter(c => groups.includes(c.group) && (commInfo(c).remaining > 0 || c.id === mComm));
+      if (mComm && mComm !== '__other' && !items.some(c => c.id === mComm)) mComm = '';
+      $('#txComm').innerHTML = '<option value="">— Chưa chọn căn / khoản —</option>' +
+        groups.filter(g => items.some(c => c.group === g)).map(g => `<optgroup label="${COMM_GROUPS[g]}">${items.filter(c => c.group === g)
+          .map(c => `<option value="${c.id}">${esc(c.code)}${c.batch ? ' · ' + esc(c.batch) : ''} · còn ${money(commInfo(c).remaining)}</option>`).join('')}</optgroup>`).join('') +
+        '<option value="__other">Căn / khoản khác (nhập mã)</option>';
+      $('#txComm').value = mComm;
+      $('#txUnit').classList.toggle('hidden', mComm !== '__other');
+      $('#txUnit').value = mUnit;
+      const sel = mComm && mComm !== '__other' ? { id: mComm, ...state.commissions[mComm] } : null;
+      const back = editingId ? ((state.transactions.find(x => x.id === editingId) || {}).comm === mComm ? (state.transactions.find(x => x.id === editingId) || {}).amount || 0 : 0) : 0;
+      $('#commText').textContent = sel ? `${COMM_GROUPS[sel.group]}${sel.batch ? ' · ' + sel.batch : ''} · còn chưa nhận ${money(commInfo(sel).remaining + back)}. Nhận một phần thì sửa lại số tiền.`
+        : mComm === '__other' ? 'Ghi mã căn và phần (ngoài công ty / bán hàng / quản lý, đợt) để biết khoản này từ đâu.' : 'Chọn căn để trừ vào phần hoa hồng chưa nhận của căn đó.';
+    }
     const showLoan = mType === 'repay' && loanList().length > 0;
     $('#loanField').classList.toggle('hidden', !showLoan);
     if (showLoan) {
@@ -1350,10 +1383,13 @@
     const data = { type: mType, cat: mCat, amount, date, note: $('#txNote').value.trim() };
     if (mType === 'invest') data.dir = mDir;
     if (mType === 'repay' && mLoan && state.loans[mLoan]) data.loan = mLoan;
-    if (mType === 'income' && mComm && state.commissions && state.commissions[mComm]) data.comm = mComm;
+    if (mType === 'income' && COMM_CATS.includes(mCat)) {
+      if (mComm && mComm !== '__other' && state.commissions && state.commissions[mComm]) data.comm = mComm;
+      else if (mComm === '__other' && mUnit.trim()) data.unit = mUnit.trim().slice(0, 60);
+    }
     if (editingId) {
       const t = state.transactions.find(x => x.id === editingId);
-      delete t.dir; delete t.loan; delete t.comm;
+      delete t.dir; delete t.loan; delete t.comm; delete t.unit;
       Object.assign(t, data);
       toast('✅ Đã cập nhật giao dịch');
     } else {
@@ -1430,7 +1466,14 @@
     $('#typeToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mType = b.dataset.type; renderModalType(); } });
     $('#dirToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mDir = b.dataset.dir; renderModalType(); } });
     $('#txLoan').addEventListener('change', e => { mLoan = e.target.value; });
-    $('#commUnlink').addEventListener('click', () => { mComm = ''; renderModalType(); });
+    $('#txComm').addEventListener('change', e => {
+      mComm = e.target.value;
+      // Chọn căn khi chưa nhập số tiền: điền sẵn phần còn chưa nhận
+      if (mComm && mComm !== '__other' && !parseAmount($('#txAmount').value)) $('#txAmount').value = nf.format(Math.round(commInfo({ id: mComm, ...state.commissions[mComm] }).remaining));
+      if (mComm && mComm !== '__other' && !$('#txNote').value.trim()) $('#txNote').value = commLabel(state.commissions[mComm]);
+      renderModalType();
+    });
+    $('#txUnit').addEventListener('input', e => { mUnit = e.target.value; });
     $('#catGrid').addEventListener('click', e => { const b = e.target.closest('.cat-btn'); if (b) { mCat = b.dataset.cat; renderModalType(); } });
     $('#txAmount').addEventListener('input', e => { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; });
     $('#quickAmounts').innerHTML = QUICK.map(v => `<button type="button" data-q="${v}">${shortMoney(v)}</button>`).join('');
@@ -1493,7 +1536,7 @@
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
           const valid = d.transactions.map(t => (t ? migrateTx(t) : t)).filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
-            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}), ...(t.type === 'repay' && typeof t.loan === 'string' ? { loan: t.loan } : {}), ...(t.type === 'income' && typeof t.comm === 'string' ? { comm: t.comm } : {}) }));
+            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}), ...(t.type === 'repay' && typeof t.loan === 'string' ? { loan: t.loan } : {}), ...(t.type === 'income' && typeof t.comm === 'string' ? { comm: t.comm } : {}), ...(t.type === 'income' && typeof t.unit === 'string' ? { unit: t.unit.slice(0, 60) } : {}) }));
           e.target.value = '';
           if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
           state.transactions = valid;
@@ -1503,7 +1546,8 @@
           if (d.commissions && typeof d.commissions === 'object') for (const [id, c] of Object.entries(d.commissions)) {
             if (!/^[A-Za-z0-9_-]{1,60}$/.test(id) || !c || typeof c !== 'object' || !(Number(c.amount) > 0)) continue;
             state.commissions[id] = { code: String(c.code || '').slice(0, 40), group: ['ngoai', 'banhang', 'quanly'].includes(c.group) ? c.group : 'banhang', batch: String(c.batch || '').slice(0, 40),
-              total: Number(c.total) || 0, receivedBefore: Number(c.receivedBefore) || 0, amount: Number(c.amount), note: String(c.note || '').slice(0, 120), order: Number(c.order) || 0 };
+              total: Number(c.total) || 0, receivedBefore: Number(c.receivedBefore) || 0, amount: Number(c.amount), note: String(c.note || '').slice(0, 120), order: Number(c.order) || 0,
+              expected: /^\d{4}-\d{2}-\d{2}$/.test(c.expected) ? c.expected : '' };
           }
           state.loans = {};
           if (d.loans && typeof d.loans === 'object') for (const [id, l] of Object.entries(d.loans)) {
@@ -1560,12 +1604,15 @@
   async function loadSample() {
     if (state.transactions.length && !await askConfirm('Dữ liệu mẫu sẽ THAY THẾ dữ liệu hiện tại. Tiếp tục?', 'Nạp dữ liệu mẫu')) return;
     state.transactions = sampleData();
-    const nk = monthKey(new Date(today().getFullYear(), today().getMonth() + 1, 1));
-    const nd = n => `${nk}-${pad(n)}`;
-    state.forecast = { [nk]: {
-      in: { luong: { amount: 27000000, date: nd(5) }, hhban: { amount: 15000000, date: nd(10), note: 'Dự án căn hộ, chờ công ty duyệt' }, hhql: { amount: 5000000, date: nd(15) }, hh1: { label: 'Hoa hồng giới thiệu khách', amount: 3000000, date: nd(20) } },
-      out: { nganhang: { amount: 12000000, date: nd(25), note: 'Gốc + lãi vay mua nhà' }, bds: { amount: 20000000, date: nd(28), note: 'Đợt 3 hợp đồng mua căn hộ' }, c1: { label: 'Học phí con', amount: 4500000, date: nd(5) } },
-    } };
+    // Mẫu: vài căn còn hoa hồng chưa nhận (ví dụ, không phải dữ liệu thật)
+    const nx = keyOf(new Date(today().getFullYear(), today().getMonth() + 1, 15));
+    state.forecast = {};
+    state.commissions = {
+      cs1: { code: 'A1-0501', group: 'banhang', batch: 'Đợt 1', total: 90000000, receivedBefore: 30000000, amount: 60000000, expected: nx, note: 'Ví dụ', order: 1 },
+      cs2: { code: 'B2-1203', group: 'banhang', batch: 'Đợt 1', total: 75000000, receivedBefore: 0, amount: 75000000, expected: '', note: 'Ví dụ', order: 2 },
+      cs3: { code: 'Hoa hồng quản lý Đợt 1', group: 'quanly', batch: '', total: 120000000, receivedBefore: 40000000, amount: 80000000, expected: nx, note: 'Ví dụ', order: 3 },
+      cs4: { code: 'C3-0808', group: 'ngoai', batch: '', total: 50000000, receivedBefore: 10000000, amount: 40000000, expected: '', note: 'Ví dụ', order: 4 },
+    };
     state.budgets = { anuong: 4500000, dilai: 2000000, muasam: 1500000, giaitri: 1000000, tiepkhach: 2000000, lamdep: 500000 };
     save(); renderCurrent(); toast('✨ Đã nạp dữ liệu mẫu 12 tháng');
   }
