@@ -33,6 +33,11 @@ Trả nợ làm giảm tiền mặt nhưng **không tính là chi tiêu**, nên 
 
 **Quản lý dòng tiền hoa hồng** (trong mục Dòng tiền, thay cho kế hoạch tới hạn nhận / chi ra theo tháng): mỗi khoản thu Hoa hồng gắn với căn / khoản (nhóm ngoài công ty, bán hàng, quản lý, đợt) hoặc mã căn tự nhập; có ngày dự kiến nhận và thêm căn mới ngay trong app. Thống kê có bảng "Hoa hồng đã nhận theo căn". danh sách phần hoa hồng chưa về của từng căn, chia nhóm Ngoài công ty / Trong công ty – bán hàng / Trong công ty – quản lý. Chưa tính vào thu nhập và tiền mặt; bấm "Nhận tiền" khi tiền về (nhận một phần thì sửa số tiền) để ghi vào thu nhập và trừ phần còn lại. File Excel có sheet "Hoa hồng chưa nhận".
 
+**Tiến độ nhận hoa hồng theo tiến độ thanh toán của khách hàng**: mỗi căn / khoản có tiến độ và các ô tích mốc KH đã thanh toán; app tính hoa hồng đã tới hạn và "Dòng tiền hoa hồng đã tới hạn nhận".
+- Bán hàng Đợt 1 (12 căn) và Quản lý Đợt 1: KH thanh toán 30% → nhận 50% HH; 50% → 90%; 70% → 100%.
+- Bán hàng Đợt 2 và Quản lý Đợt 2: KH 15% → 50%; 25% → 70%; 45% → 95%; 70% → 100%.
+- Tới hạn chưa nhận = tổng HH × % tới hạn − phần đã nhận. Nút "Nhận tiền" điền sẵn phần tới hạn.
+
 **Dư nợ phải trả** (trong mục Dòng tiền): nhập dư nợ hiện tại của từng khoản vay. Mỗi khoản Trả nợ gắn với khoản vay (chọn ở ô "Trừ vào khoản nợ" khi nhập) được trừ dần vào dư nợ; Trả lãi vay không trừ vào nợ gốc. Tổng quan hiện tổng dư nợ phải trả và tài sản ròng (tài sản − dư nợ); file Excel có sheet "Dư nợ phải trả".
 
 ### 5 khoản đầu tư

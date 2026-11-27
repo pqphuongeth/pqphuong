@@ -710,11 +710,31 @@
     const total = Number(c.total) || ((Number(c.receivedBefore) || 0) + (Number(c.amount) || 0));
     return { got, times, remaining, total, receivedAll: total - remaining };
   }
+  // Quy định nhận hoa hồng theo tiến độ khách hàng thanh toán: [% KH đã thanh toán, % hoa hồng được nhận (cộng dồn)]
+  const SCHEDULES = {
+    dot1: { name: 'Tiến độ Đợt 1', steps: [[30, 50], [50, 90], [70, 100]] },
+    dot2: { name: 'Tiến độ Đợt 2', steps: [[15, 50], [25, 70], [45, 95], [70, 100]] },
+    none: { name: 'Không theo tiến độ', steps: [] },
+  };
+  // Mặc định: Đợt 1 / Đợt 2 theo tên đợt (bán hàng) hoặc tên khoản (quản lý); ngoài công ty không theo tiến độ
+  const schedOf = c => c.sched || (c.group === 'ngoai' ? 'none'
+    : /đợt\s*2/i.test(`${c.batch || ''} ${c.code || ''}`) ? 'dot2' : /đợt\s*1/i.test(`${c.batch || ''} ${c.code || ''}`) ? 'dot1' : 'none');
+  // Hoa hồng đã tới hạn = tổng HH × % của mốc cao nhất KH đã thanh toán; tới hạn chưa nhận = phần tới hạn − phần đã nhận
+  function commDue(c) {
+    const i = commInfo(c), sc = SCHEDULES[schedOf(c)], st = c.steps || {};
+    let reached = 0;
+    sc.steps.forEach((x, k) => { if (st[k]) reached = k + 1; });
+    const pct = reached ? sc.steps[reached - 1][1] : 0;
+    const dueAmt = Math.round(i.total * pct / 100);
+    const dueLeft = sc.steps.length ? Math.max(Math.min(dueAmt - i.receivedAll, i.remaining), 0) : 0;
+    return { ...i, sched: schedOf(c), steps: sc.steps, reached, pct, dueAmt, dueLeft, notDue: Math.max(i.remaining - dueLeft, 0) };
+  }
   function commTotal() {
-    const r = { remaining: 0, count: 0, byGroup: {} };
+    const r = { remaining: 0, count: 0, byGroup: {}, due: 0, dueCount: 0 };
     for (const c of commList()) {
-      const i = commInfo(c); r.remaining += i.remaining; if (i.remaining > 0) r.count++;
+      const i = commDue(c); r.remaining += i.remaining; if (i.remaining > 0) r.count++;
       r.byGroup[c.group] = (r.byGroup[c.group] || 0) + i.remaining;
+      r.due += i.dueLeft; if (i.dueLeft > 0) r.dueCount++;
     }
     return r;
   }
@@ -794,21 +814,40 @@
     const got = state.transactions.filter(t => t.type === 'income' && t.comm === c.id).sort((a, b) => a.date.localeCompare(b.date));
     return got.length ? `<small class="comm-hist">Đã nhận qua app: ${got.map(t => `${dm(parseKey(t.date))} ${money(t.amount)}`).join(' · ')}</small>` : '';
   }
+  function renderCommDue() {
+    const items = commList().map(c => ({ c, i: commDue(c) })).filter(x => x.i.dueLeft > 0).sort((a, b) => b.i.dueLeft - a.i.dueLeft);
+    const total = items.reduce((a, x) => a + x.i.dueLeft, 0);
+    $('#commDue').innerHTML = `<div class="comm-due-head"><b>📥 Dòng tiền hoa hồng đã tới hạn nhận</b><span class="income-text num">${money(total)}</span></div>` +
+      (items.length ? items.map(({ c, i }) => `<div class="comm-due-row">
+          <span><b>${esc(c.code)}</b> <small class="muted">${esc(commTag(c).replace(c.code, '').replace(/^ · /, ''))} · KH đã TT ${i.steps[i.reached - 1][0]}% → HH ${i.pct}%</small></span>
+          <span class="num"><b>${money(i.dueLeft)}</b></span>
+          <button type="button" class="fc-status in" data-comm-recv="${c.id}">📥 Nhận tiền</button>
+        </div>`).join('')
+        : '<div class="muted small">Chưa có khoản nào tới hạn. Tích các mốc khách hàng đã thanh toán ở từng căn bên dưới để app tính hoa hồng tới hạn.</div>');
+  }
   function renderComms() {
+    renderCommDue();
     const list = commList(), el = $('#commList');
     if (!list.length) { el.innerHTML = '<div class="empty small">Chưa có dữ liệu hoa hồng chưa nhận.</div>'; return; }
     const groups = {};
     list.forEach(c => (groups[c.group] ||= []).push(c));
     el.innerHTML = Object.keys(COMM_GROUPS).filter(g => groups[g]).map(g => {
-      const items = groups[g], sum = items.reduce((a, c) => a + commInfo(c).remaining, 0);
-      return `<div class="comm-group"><div class="comm-group-head"><b>${COMM_GROUPS[g]}</b><span class="income-text num">${money(sum)}</span></div>` +
+      const items = groups[g], sum = items.reduce((a, c) => a + commInfo(c).remaining, 0), due = items.reduce((a, c) => a + commDue(c).dueLeft, 0);
+      return `<div class="comm-group"><div class="comm-group-head"><b>${COMM_GROUPS[g]}</b><span class="income-text num">${due ? `tới hạn ${money(due)} · ` : ''}còn ${money(sum)}</span></div>` +
         items.map(c => {
-          const i = commInfo(c), p = i.total ? Math.min(i.receivedAll / i.total * 100, 100) : 0;
+          const i = commDue(c), p = i.total ? Math.min(i.receivedAll / i.total * 100, 100) : 0;
+          const schedHtml = `<div class="comm-sched">
+              <select class="input comm-sched-sel" id="comm-${c.id}-sched" aria-label="Tiến độ nhận hoa hồng">${Object.entries(SCHEDULES).map(([k, v]) => `<option value="${k}" ${k === i.sched ? 'selected' : ''}>${v.name}</option>`).join('')}</select>
+              ${i.steps.map((x, k) => `<button type="button" class="step ${k < i.reached ? 'on' : ''}" data-comm-step="${c.id}" data-k="${k}" title="${k < i.reached ? 'Bỏ tích' : 'Tích khi'} khách hàng đã thanh toán ${x[0]}%${c.steps && c.steps[k] ? ' (tích ngày ' + dmy(parseKey(c.steps[k])) + ')' : ''}">${k < i.reached ? '✓' : '○'} KH ${x[0]}% → HH ${x[1]}%</button>`).join('')}
+            </div>
+            ${i.steps.length && !i.reached ? '<small class="comm-due-line">Chưa tích mốc thanh toán nào: tích khi khách hàng đạt mốc.</small>' : ''}
+            ${i.steps.length && i.reached ? `<small class="comm-due-line">Đã tới hạn <b>${money(i.dueAmt)}</b> (${i.pct}% HH) · đã nhận ${money(i.receivedAll)}${i.dueLeft ? ` · <b class="income-text">tới hạn chưa nhận ${money(i.dueLeft)}</b>` : i.reached && !i.dueLeft ? ' · đã nhận đủ phần tới hạn' : ''}</small>` : ''}`;
           return `<div class="comm-row ${i.remaining ? '' : 'done'}" data-comm="${c.id}">
             <div class="comm-name"><b>${esc(c.code)}</b><small class="muted">${esc([c.batch, i.total ? `Tổng HH ${money(i.total)}` : '', `đã nhận ${money(i.receivedAll)}`, c.note].filter(Boolean).join(' · '))}</small>
+              ${schedHtml}
               ${commHistory(c)}
               ${i.remaining ? `<label class="comm-exp-wrap">Dự kiến nhận <input type="date" class="input comm-exp" id="comm-${c.id}-exp" value="${esc(c.expected || '')}" /></label>` : ''}</div>
-            <div class="comm-amt"><span class="muted small">${i.remaining ? 'Còn chưa nhận' : 'Đã nhận đủ'}</span><b class="${i.remaining ? 'income-text' : ''}">${money(i.remaining)}</b></div>
+            <div class="comm-amt">${i.dueLeft ? `<span class="due-pill">Tới hạn ${money(i.dueLeft)}</span>` : ''}<span class="muted small">${i.remaining ? 'Còn chưa nhận' : 'Đã nhận đủ'}</span><b class="${i.remaining ? 'income-text' : ''}">${money(i.remaining)}</b></div>
             <div class="comm-actions">${i.remaining ? `<button type="button" class="fc-status in" data-comm-recv="${c.id}">📥 Nhận tiền</button>` : ''}<button type="button" class="icon-btn" data-comm-del="${c.id}" title="Xóa khỏi danh sách">✕</button></div>
             <div class="bar"><i style="width:${p}%;background:var(--income)"></i></div>
           </div>`;
@@ -857,27 +896,29 @@
     const net = all.net + ct.remaining - lt.remaining;
     $('#fcStats').innerHTML =
       statCard('💰', 'ico-income', 'Hoa hồng chưa nhận', money(ct.remaining), { cls: 'muted', text: `${ct.count} căn / khoản · dự kiến nhận đến hết tháng ${t0.getMonth() + 1}: ${money(due)}` }) +
-      statCard('📥', 'ico-income', `Hoa hồng đã nhận tháng ${t0.getMonth() + 1}`, money(rc.sum), { cls: 'muted', text: `${rc.n} lần nhận` }) +
+      statCard('📥', 'ico-income', 'Hoa hồng đã tới hạn nhận', money(ct.due), { cls: ct.due ? 'up-good' : 'muted', text: `${ct.dueCount} căn / khoản · theo tiến độ KH thanh toán` }) +
+      statCard('✅', 'ico-income', `Hoa hồng đã nhận tháng ${t0.getMonth() + 1}`, money(rc.sum), { cls: 'muted', text: `${rc.n} lần nhận` }) +
       statCard('🏦', 'ico-repay', 'Dư nợ phải trả', money(lt.remaining), { cls: 'muted', text: `${lt.count} khoản vay · đã trả gốc ${money(lt.paid)}` }) +
       statCard('💵', 'ico-primary', 'Tiền mặt hiện có', money(all.cash), { cls: 'muted', text: `Nếu nhận hết hoa hồng: ${money(all.cash + ct.remaining)}` }) +
-      statCard('⚖️', 'ico-warn', 'Tài sản ròng nếu nhận hết hoa hồng', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: `Hiện tại ${money(all.net - lt.remaining)} + hoa hồng chưa nhận` });
+      statCard('⚖️', 'ico-warn', 'Tài sản ròng nếu nhận hết HH', money(net), { cls: net >= 0 ? 'up-good' : 'up-bad', text: `Hiện tại ${money(all.net - lt.remaining)} + hoa hồng chưa nhận` });
     renderLoanSum();
     $('#commSum').innerHTML = `<div class="fc-db">${Object.keys(COMM_GROUPS).map(g => `<div><span class="muted small">${COMM_GROUPS[g]}</span><b>${money(ct.byGroup[g] || 0)}</b></div>`).join('')}
-      <div><span class="muted small">Tổng hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div></div>`;
+      <div><span class="muted small">Tổng hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div>
+      <div><span class="muted small">Trong đó đã tới hạn nhận</span><b class="income-text">${money(ct.due)}</b></div></div>`;
   }
   // Ô trên Tổng quan: dòng tiền hoa hồng và dư nợ
   function renderDbForecast() {
     const t0 = today(), mk = monthKey(t0), ct = commTotal(), lt = loansTotal();
     const rc = commReceived(keyOf(new Date(t0.getFullYear(), t0.getMonth(), 1)), keyOf(t0));
     const el = $('#dbForecast');
-    if (!ct.remaining && !rc.sum && !lt.count) {
+    if (!ct.remaining && !rc.sum && !lt.count && !ct.due) {
       el.innerHTML = `<div class="fc-db-empty"><span>Chưa có hoa hồng chưa nhận hay khoản vay nào.</span><button class="btn btn-ghost btn-sm" data-goto="forecast">Mở mục Dòng tiền</button></div>`;
       return;
     }
     el.innerHTML = `<div class="fc-db">
       <div><span class="muted small">Hoa hồng chưa nhận</span><b class="income-text">${money(ct.remaining)}</b></div>
       <div><span class="muted small">Đã nhận tháng ${t0.getMonth() + 1}</span><b>${money(rc.sum)}</b></div>
-      <div><span class="muted small">Dự kiến nhận đến hết tháng</span><b>${money(commDueIn(mk))}</b></div>
+      <div><span class="muted small">Đã tới hạn nhận</span><b class="income-text">${money(ct.due)}</b></div>
       <div><span class="muted small">Dư nợ phải trả</span><b class="repay-text">${money(lt.remaining)}</b></div>
     </div>`;
   }
@@ -941,11 +982,23 @@
     view.addEventListener('input', e => {
       if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
     });
+    view.addEventListener('click', e => {
+      const sb = e.target.closest('[data-comm-step]'); if (!sb) return;
+      const id = sb.dataset.commStep, k = Number(sb.dataset.k), c = state.commissions[id], d = commDue({ id, ...c });
+      const steps = { ...(c.steps || {}) };
+      if (k < d.reached) { Object.keys(steps).forEach(x => { if (Number(x) >= k) delete steps[x]; }); }      // bỏ tích mốc này và các mốc sau
+      else { for (let j = 0; j <= k; j++) if (!steps[j]) steps[j] = keyOf(today()); }                       // tích mốc này và các mốc trước
+      state.commissions = { ...state.commissions, [id]: { ...c, steps } };
+      save(); renderForecast();
+      const nd = commDue({ id, ...state.commissions[id] });
+      toast(nd.dueLeft ? `📥 ${c.code}: tới hạn nhận ${money(nd.dueLeft)}` : `${c.code}: đã tới hạn ${nd.pct}% hoa hồng`);
+    });
     view.addEventListener('click', async e => {
       const rb = e.target.closest('[data-comm-recv]');
       if (rb) {
         const c = { id: rb.dataset.commRecv, ...state.commissions[rb.dataset.commRecv] };
-        openModal(null, { type: 'income', cat: c.group === 'quanly' ? 'hhquanly' : 'hoahong', amount: commInfo(c).remaining, note: commLabel(c), comm: c.id });
+        const d = commDue(c);
+        openModal(null, { type: 'income', cat: c.group === 'quanly' ? 'hhquanly' : 'hoahong', amount: d.dueLeft || d.remaining, note: commLabel(c), comm: c.id });
         return;
       }
       const db = e.target.closest('[data-comm-del]'); if (!db) return;
@@ -970,6 +1023,11 @@
       save(); renderCurrent(); toast('🗑️ Đã xóa khoản nợ');
     });
     view.addEventListener('change', e => {
+      if (e.target.classList.contains('comm-sched-sel')) {
+        const id = e.target.closest('.comm-row').dataset.comm;
+        state.commissions = { ...state.commissions, [id]: { ...state.commissions[id], sched: e.target.value, steps: {} } };
+        save(); renderForecast(); return;
+      }
       if (e.target.classList.contains('comm-exp')) {
         const id = e.target.closest('.comm-row').dataset.comm;
         state.commissions = { ...state.commissions, [id]: { ...state.commissions[id], expected: e.target.value } };
@@ -1197,21 +1255,23 @@
     }
 
     if (sheetIds.includes('comm')) {
-      const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú', 'Dự kiến nhận']];
+      const rows = [['Nhóm', 'Mã căn / Nội dung', 'Đợt', 'Tổng hoa hồng (₫)', 'Đã nhận (₫)', 'Còn chưa nhận (₫)', '% đã nhận', 'Ghi chú', 'Dự kiến nhận',
+        'Tiến độ', 'KH đã thanh toán', '% HH tới hạn', 'Tới hạn (₫)', 'Tới hạn chưa nhận (₫)']];
       const list = commList();
       if (!list.length) rows.push(['Chưa có dữ liệu hoa hồng chưa nhận.']);
       list.forEach(c => {
-        const i = commInfo(c), row = rows.length + 1;
+        const i = commDue(c), row = rows.length + 1;
         rows.push([COMM_GROUPS[c.group] || c.group, c.code, c.batch || '', xm(i.total), xm(i.receivedAll), xm(i.remaining),
-          { t: 'n', v: i.total ? i.receivedAll / i.total : 0, f: `IF(D${row}=0,0,E${row}/D${row})`, z: '0.0%' }, c.note || '', c.expected ? xdate(c.expected) : '']);
+          { t: 'n', v: i.total ? i.receivedAll / i.total : 0, f: `IF(D${row}=0,0,E${row}/D${row})`, z: '0.0%' }, c.note || '', c.expected ? xdate(c.expected) : '',
+          SCHEDULES[i.sched].name, i.reached ? `${i.steps[i.reached - 1][0]}%` : (i.steps.length ? 'Chưa đạt mốc' : ''), i.steps.length ? xpct(i.pct / 100) : '', i.steps.length ? xm(i.dueAmt) : '', xm(i.dueLeft)]);
       });
       if (list.length) {
-        const last = rows.length, t = list.map(commInfo), n = last + 1;
+        const last = rows.length, t = list.map(commDue), n = last + 1;
         const sum = k => t.reduce((a, i) => a + i[k], 0);
         rows.push(['TỔNG CỘNG', '', '', xsum('D', 2, last, sum('total')), xsum('E', 2, last, sum('receivedAll')), xsum('F', 2, last, sum('remaining')),
-          { t: 'n', v: sum('total') ? sum('receivedAll') / sum('total') : 0, f: `IF(D${n}=0,0,E${n}/D${n})`, z: '0.0%' }, '']);
+          { t: 'n', v: sum('total') ? sum('receivedAll') / sum('total') : 0, f: `IF(D${n}=0,0,E${n}/D${n})`, z: '0.0%' }, '', '', '', '', '', '', xsum('N', 2, last, sum('dueLeft'))]);
       }
-      add('comm', xSheet(rows, [30, 26, 12, 18, 18, 18, 10, 30, 14], list.length ? [0, rows.length - 2] : null));
+      add('comm', xSheet(rows, [30, 26, 12, 18, 18, 18, 10, 30, 14, 32, 16, 12, 18, 20], list.length ? [0, rows.length - 2] : null));
     }
     if (sheetIds.includes('loans')) {
       const rows = [['Khoản nợ', 'Ngày ghi nhận', 'Dư nợ ban đầu (₫)', 'Đã trả gốc (₫)', 'Lãi đã trả (₫)', 'Còn phải trả (₫)', '% đã trả', 'Ghi chú']];
@@ -1530,7 +1590,9 @@
             if (!/^[A-Za-z0-9_-]{1,60}$/.test(id) || !c || typeof c !== 'object' || !(Number(c.amount) > 0)) continue;
             state.commissions[id] = { code: String(c.code || '').slice(0, 40), group: ['ngoai', 'banhang', 'quanly'].includes(c.group) ? c.group : 'banhang', batch: String(c.batch || '').slice(0, 40),
               total: Number(c.total) || 0, receivedBefore: Number(c.receivedBefore) || 0, amount: Number(c.amount), note: String(c.note || '').slice(0, 120), order: Number(c.order) || 0,
-              expected: /^\d{4}-\d{2}-\d{2}$/.test(c.expected) ? c.expected : '' };
+              expected: /^\d{4}-\d{2}-\d{2}$/.test(c.expected) ? c.expected : '',
+              ...(SCHEDULES[c.sched] ? { sched: c.sched } : {}),
+              steps: c.steps && typeof c.steps === 'object' ? Object.fromEntries(Object.entries(c.steps).filter(([k, v]) => /^\d$/.test(k) && /^\d{4}-\d{2}-\d{2}$/.test(v))) : {} };
           }
           state.loans = {};
           if (d.loans && typeof d.loans === 'object') for (const [id, l] of Object.entries(d.loans)) {

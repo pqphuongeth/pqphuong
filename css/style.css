@@ -343,6 +343,18 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .comm-exp-wrap .input { padding: 4px 8px; font-size: .8rem; width: auto; }
 .comm-hist { display: block; font-size: .74rem; color: var(--income); }
 #commField .input + .input { margin-top: 6px; }
+.comm-due { display: flex; flex-direction: column; gap: 6px; padding: 12px; margin: 8px 0 4px; border-radius: 12px; background: var(--income-soft); }
+.comm-due-head { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.comm-due-head span { font-weight: 800; white-space: nowrap; }
+.comm-due-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; align-items: center; padding-top: 6px; border-top: 1px solid var(--border); font-size: .88rem; }
+.comm-due-row small { display: block; }
+.comm-sched { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.comm-sched-sel { width: auto; padding: 4px 8px; font-size: .76rem; }
+.step { border: 1px solid var(--border); background: var(--surface); border-radius: 99px; padding: 4px 10px; font-size: .76rem; font-weight: 600; cursor: pointer; color: var(--muted); }
+.step.on { background: var(--income); border-color: var(--income); color: #fff; }
+.step:hover { border-color: var(--income); }
+.comm-due-line { display: block; font-size: .78rem; margin-top: 4px; color: var(--muted); }
+.due-pill { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--income); color: #fff; white-space: nowrap; margin-bottom: 2px; }
 .comm-group { display: flex; flex-direction: column; margin-top: 10px; }
 .comm-group-head { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 2px solid var(--border); font-size: .92rem; }
 .comm-group-head span { white-space: nowrap; font-weight: 700; }
@@ -512,9 +524,14 @@ h3 { font-size: 1.02rem; font-weight: 700; }
   .budget-total { grid-template-columns: 1fr 1fr; }
   .budget-list { grid-template-columns: 1fr; }
   .comm-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .comm-name { grid-column: 1 / -1; }
+  .comm-amt { align-items: flex-start; }
+  .comm-actions { grid-column: auto; }
   .comm-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .comm-add-note { grid-column: 1 / -1; }
-  .comm-actions { grid-column: 1 / -1; justify-content: flex-end; }
+  .comm-actions { justify-content: flex-end; }
+  .comm-due-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .comm-due-row .fc-status { grid-column: 1 / -1; }
   .fc-db b { font-size: .98rem; }
   .fc-db { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .x-grid { grid-template-columns: minmax(0, 1fr); }

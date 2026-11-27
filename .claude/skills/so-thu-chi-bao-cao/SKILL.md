@@ -52,6 +52,7 @@ Quy tắc tính (giống app, script đã làm sẵn; nhắc ở đây để gi�
 - Rót vốn đầu tư làm tiền mặt giảm, rút vốn làm tiền mặt tăng; cả hai không phải thu / chi.
 - **Trả nợ** (`type: repay`: trả nợ ngân hàng, lãi vay, thẻ tín dụng / trả góp, nợ cá nhân, nợ khác) làm tiền mặt giảm nhưng **không tính là chi tiêu**, để khoản trả lớn không làm sai chi tiêu và chi trung bình / ngày.
 - Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ. Tiền mặt = tổng tài sản − đầu tư ròng.
+- **Hoa hồng đã tới hạn nhận** theo tiến độ khách hàng thanh toán: mỗi căn có `sched` (`dot1`: KH 30% → 50% HH, 50% → 90%, 70% → 100%; `dot2`: KH 15% → 50%, 25% → 70%, 45% → 95%, 70% → 100%; `none`: ngoài công ty) và `steps` (các mốc đã tích, kèm ngày). Tới hạn = tổng HH × % của mốc cao nhất đã tích; **tới hạn chưa nhận** = tới hạn − đã nhận. Bán hàng Đợt 1 và Quản lý Đợt 1 dùng `dot1`; Đợt 2 dùng `dot2`.
 - **Hoa hồng chưa nhận** của một căn = `amount` − các khoản thu gắn với căn đó (`comm`). Tiền chưa về **không** tính vào thu nhập hay tiền mặt. Thu nhập có riêng mục **Hoa hồng quản lý** (`hhquanly`) bên cạnh Hoa hồng từ bán hàng (`hoahong`).
 - **Dư nợ phải trả** của một khoản vay = dư nợ ban đầu − các khoản trả nợ gắn với khoản đó (không phụ thuộc ngày ghi nhận), **trừ lãi vay** (`tr_laivay` không làm giảm nợ gốc). Tài sản ròng = tổng tài sản − tổng dư nợ.
 - Chi trung bình / ngày chia cho số ngày **đã qua** trong kỳ, không chia cho cả kỳ.

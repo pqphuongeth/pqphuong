@@ -107,6 +107,17 @@ COMMS = {}  # hoa hồng chưa nhận theo căn (tài liệu `commissions`): {id
 COMM_GROUPS = {'ngoai': 'Ngoài công ty', 'banhang': 'Trong công ty · Hoa hồng bán hàng', 'quanly': 'Trong công ty · Hoa hồng quản lý'}
 
 
+# Quy định nhận hoa hồng theo tiến độ KH thanh toán: [% KH đã thanh toán, % hoa hồng được nhận cộng dồn]
+SCHEDULES = {'dot1': [(30, 50), (50, 90), (70, 100)], 'dot2': [(15, 50), (25, 70), (45, 95), (70, 100)], 'none': []}
+
+
+def sched_of(c):
+    if c.get('sched') in SCHEDULES: return c['sched']
+    if c.get('group') == 'ngoai': return 'none'
+    txt = f"{c.get('batch', '')} {c.get('code', '')}".lower()
+    return 'dot2' if 'đợt 2' in txt else 'dot1' if 'đợt 1' in txt else 'none'
+
+
 def comm_status(tx, upto):
     """Phần hoa hồng còn chưa nhận: amount (lúc nhập) − các khoản thu gắn căn (t.comm) tới ngày `upto`."""
     out = []
@@ -114,8 +125,14 @@ def comm_status(tx, upto):
         got = sum(t['amount'] for t in tx if t['type'] == 'income' and t.get('comm') == cid and t['date'] <= upto)
         rem = max((c.get('amount') or 0) - got, 0)
         total = c.get('total') or ((c.get('receivedBefore') or 0) + (c.get('amount') or 0))
+        steps = SCHEDULES[sched_of(c)]; ticked = c.get('steps') or {}
+        reached = max([k + 1 for k in range(len(steps)) if ticked.get(str(k)) or ticked.get(k)] or [0])
+        pct = steps[reached - 1][1] if reached else 0
+        due_amt = int(total * pct / 100 + 0.5)   # làm tròn như Math.round của app (không dùng round kiểu ngân hàng)
+        due_left = max(min(due_amt - (total - rem), rem), 0) if steps else 0
         out.append(dict(id=cid, code=c.get('code', cid), group=c.get('group', 'banhang'), batch=c.get('batch', ''), total=total,
-                        received=total - rem, remaining=rem, got=got))
+                        received=total - rem, remaining=rem, got=got, sched=sched_of(c), reached=reached, pct=pct,
+                        paid_pct=steps[reached - 1][0] if reached else 0, due_amt=due_amt, due_left=due_left))
     return out
 
 
@@ -226,7 +243,10 @@ def text_day(tx, forecast, debts, budgets, day):
         for t in sorted(rep, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
     if not r['count']: L.append("Hôm nay chưa ghi khoản thu chi nào. Nhớ ghi bổ sung trong app.")
     L.append(f"💵 Tiền mặt hiện có: {vnd(pos['cash'])}")
-    if cs: L.append(f"💰 Hoa hồng chưa nhận: {vnd(sum(x['remaining'] for x in cs.values()))}")
+    if cs:
+        due = [x for x in cs.values() if x['due_left'] > 0]
+        L.append(f"💰 Hoa hồng chưa nhận: {vnd(sum(x['remaining'] for x in cs.values()))}"
+                 + (f" · đã tới hạn {vnd(sum(x['due_left'] for x in due))} ({len(due)} căn/khoản)" if due else ''))
     ls = [x for x in loans_status(tx, s) if x['principal']]
     if ls:
         L.append(f"🏦 Dư nợ còn phải trả: {vnd(sum(x['remaining'] for x in ls))}")
@@ -262,6 +282,9 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     if cs:
         got = sum(t['amount'] for t in r['items'] if t['type'] == 'income' and t.get('comm'))
         L.append(f"💰 Hoa hồng chưa nhận: {vnd(sum(x['remaining'] for x in cs))}" + (f" (trong {label} đã nhận {vnd(got)})" if got else ''))
+        due = sorted([x for x in cs if x['due_left'] > 0], key=lambda x: -x['due_left'])
+        if due: L.append(f"📥 Đã tới hạn nhận theo tiến độ KH thanh toán: {vnd(sum(x['due_left'] for x in due))} ("
+                         + ', '.join(f"{x['code']} {tr(x['due_left'])}" for x in due[:5]) + ('…' if len(due) > 5 else '') + ')')
     ls = [x for x in loans_status(tx, b.isoformat()) if x['principal']]
     if ls:
         rem = sum(x['remaining'] for x in ls)
@@ -363,16 +386,16 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
         for g, gname in COMM_GROUPS.items():
             items = [x for x in cs if x['group'] == g]
             if not items: continue
-            rows += f'<tr><td colspan="5"><b class="pos">{e(gname)}</b> · còn {num(sum(x["remaining"] for x in items))}</td></tr>' + ''.join(
-                f'<tr><td>{e(x["code"])}<br><small class="muted">{("Dự kiến nhận " + dmy(COMMS[x["id"]]["expected"])) if COMMS.get(x["id"], {}).get("expected") else ""}</small></td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
+            rows += f'<tr><td colspan="6"><b class="pos">{e(gname)}</b> · còn {num(sum(x["remaining"] for x in items))}</td></tr>' + ''.join(
+                f'<tr><td>{e(x["code"])}<br><small class="muted">{("Dự kiến nhận " + dmy(COMMS[x["id"]]["expected"])) if COMMS.get(x["id"], {}).get("expected") else ""}</small></td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{(num(x["due_left"]) + f'<br><small class="muted">KH {x["paid_pct"]}% → HH {x["pct"]}%</small>') if x["reached"] else "—"}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
         sec_comm = f"""
   <section>
     <h2>Hoa hồng chưa nhận</h2>
-    <p class="section-note">Chưa tính vào thu nhập và tiền mặt cho tới khi nhận.</p>
+    <p class="section-note">Chưa tính vào thu nhập và tiền mặt cho tới khi nhận. “Tới hạn chưa nhận” tính theo mốc khách hàng đã thanh toán được tích trong app (Đợt 1: KH 30/50/70% → HH 50/90/100%; Đợt 2: KH 15/25/45/70% → HH 50/70/95/100%).</p>
     <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Mã căn / Nội dung</th><th>Đợt</th><th class="r">Tổng hoa hồng</th><th class="r">Đã nhận</th><th class="r">Còn chưa nhận</th></tr></thead>
+      <thead><tr><th>Mã căn / Nội dung</th><th>Đợt</th><th class="r">Tổng hoa hồng</th><th class="r">Đã nhận</th><th class="r">Tới hạn chưa nhận</th><th class="r">Còn chưa nhận</th></tr></thead>
       <tbody>{rows}</tbody>
-      <tfoot><tr><td colspan="4">Tổng hoa hồng chưa nhận</td><td class="r num pos">{num(sum(x['remaining'] for x in cs))}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">Tổng</td><td class="r num pos">{num(sum(x['due_left'] for x in cs))}</td><td class="r num pos">{num(sum(x['remaining'] for x in cs))}</td></tr></tfoot>
     </table></div></div>
   </section>"""
     sec_issue = '' if not issues else '<section><h2>Cần xem lại trong app</h2><div class="sheet"><ol class="todo">' + \
