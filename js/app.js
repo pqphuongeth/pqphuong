@@ -55,9 +55,17 @@
   // Nằm ngoài 10 khoản thu nhập, chỉ hiện thêm ở cuối lưới chọn khi nhập khoản thu.
   const CAPITAL_CAT = { id: 'vonsan', name: 'Vốn có sẵn / Số dư đầu kỳ', icon: '🏧', color: '#64748b', capital: true,
     desc: 'Tiền có sẵn từ trước khi dùng app (tiền mặt, tài khoản, vốn đầu tư cũ). Cộng vào tiền mặt, không tính là thu nhập.' };
-  const CATS_BY_TYPE = { income: [...INCOME_CATS, CAPITAL_CAT], expense: EXPENSE_CATS, invest: INVEST_CATS };
-  const TYPE_NAMES = { income: 'Thu nhập', expense: 'Chi tiêu', invest: 'Đầu tư' };
-  const CAT_MAP = Object.fromEntries([...INCOME_CATS, CAPITAL_CAT, ...EXPENSE_CATS, ...INVEST_CATS].map(c => [c.id, c]));
+  // Trả nợ: tiền mặt giảm nhưng KHÔNG tính là chi tiêu (khoản trả lớn không làm sai thống kê chi tiêu hằng ngày)
+  const REPAY_CATS = [
+    { id: 'tr_nganhang',   name: 'Trả nợ ngân hàng (gốc)',       icon: '🏦', color: '#0f766e' },
+    { id: 'tr_laivay',     name: 'Trả lãi vay',                  icon: '📉', color: '#0d9488' },
+    { id: 'tr_thetindung', name: 'Thẻ tín dụng / Trả góp',       icon: '💳', color: '#14b8a6' },
+    { id: 'tr_canhan',     name: 'Trả nợ cá nhân / người thân',  icon: '🤝', color: '#2dd4bf' },
+    { id: 'tr_khac',       name: 'Trả nợ khác',                  icon: '📄', color: '#5eead4' },
+  ];
+  const CATS_BY_TYPE = { income: [...INCOME_CATS, CAPITAL_CAT], expense: EXPENSE_CATS, invest: INVEST_CATS, repay: REPAY_CATS };
+  const TYPE_NAMES = { income: 'Thu nhập', expense: 'Chi tiêu', invest: 'Đầu tư', repay: 'Trả nợ' };
+  const CAT_MAP = Object.fromEntries([...INCOME_CATS, CAPITAL_CAT, ...EXPENSE_CATS, ...INVEST_CATS, ...REPAY_CATS].map(c => [c.id, c]));
   const isCapital = t => t.type === 'income' && !!(CAT_MAP[t.cat] && CAT_MAP[t.cat].capital);
   const catOf = id => CAT_MAP[id] || { id, name: 'Không rõ', icon: '❔', color: '#999' };
   // Khoản đã bỏ khỏi danh sách: chuyển dữ liệu cũ sang khoản gần nhất
@@ -186,7 +194,7 @@
   const parseAmount = s => Number(String(s).replace(/[^\d]/g, '')) || 0;
 
   function sumRange(startKey, endKey) {
-    let income = 0, expense = 0, invest = 0, capital = 0, count = 0;
+    let income = 0, expense = 0, invest = 0, capital = 0, repay = 0, count = 0;
     const byCat = {};
     for (const t of state.transactions) {
       if (t.date < startKey || t.date > endKey) continue;
@@ -195,12 +203,13 @@
       if (isCapital(t)) capital += amt;
       else if (t.type === 'income') income += amt;
       else if (t.type === 'expense') expense += amt;
+      else if (t.type === 'repay') repay += amt;
       else invest += amt;
       byCat[t.cat] = (byCat[t.cat] || 0) + amt;
     }
     // income: thu nhập thật (không gồm vốn có sẵn); saving: thu − chi (tính tỷ lệ tiết kiệm)
-    // net: tài sản tích lũy (thu + vốn có sẵn − chi); cash: tiền mặt còn lại sau khi đầu tư
-    return { income, expense, invest, capital, saving: income - expense, net: income + capital - expense, cash: income + capital - expense - invest, count, byCat };
+    // net: tài sản đang nắm giữ (thu + vốn có sẵn − chi − trả nợ); cash: tiền mặt còn lại sau khi đầu tư và trả nợ
+    return { income, expense, invest, capital, repay, saving: income - expense, net: income + capital - expense - repay, cash: income + capital - expense - invest - repay, count, byCat };
   }
 
   // ---------------- KỲ THỐNG KÊ ----------------
@@ -317,7 +326,7 @@
     Chart.defaults.color = cssVar('--muted');
     charts[id] = new Chart(el, config);
   }
-  function barConfig(labels, inc, exp, inv) {
+  function barConfig(labels, inc, exp, inv, rep) {
     const grid = cssVar('--border');
     return {
       type: 'bar',
@@ -327,6 +336,7 @@
           { label: 'Thu nhập', data: inc, backgroundColor: cssVar('--income'), borderRadius: 6, maxBarThickness: 28 },
           { label: 'Chi tiêu', data: exp, backgroundColor: cssVar('--expense'), borderRadius: 6, maxBarThickness: 28 },
           { label: 'Đầu tư', data: inv, backgroundColor: cssVar('--invest'), borderRadius: 6, maxBarThickness: 28 },
+          { label: 'Trả nợ', data: rep, backgroundColor: cssVar('--repay'), borderRadius: 6, maxBarThickness: 28 },
         ],
       },
       options: {
@@ -404,17 +414,18 @@
       statCard('⬆️', 'ico-income', `Thu nhập tháng ${t.getMonth() + 1}`, money(cur.income), deltaInfo(cur.income, prev.income, true, 'tháng trước')) +
       statCard('⬇️', 'ico-expense', `Chi tiêu tháng ${t.getMonth() + 1}`, money(cur.expense), deltaInfo(cur.expense, prev.expense, false, 'tháng trước')) +
       statCard('📊', 'ico-invest', `Đầu tư tháng ${t.getMonth() + 1}`, money(cur.invest), deltaInfo(cur.invest, prev.invest, true, 'tháng trước')) +
-      statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: cur.capital ? `Thu + vốn có sẵn ${money(cur.capital)} − Chi − Đầu tư` : 'Thu − Chi − Đầu tư' }) +
+      statCard('🏦', 'ico-repay', `Trả nợ tháng ${t.getMonth() + 1}`, money(cur.repay), { cls: 'muted', text: 'Không tính vào chi tiêu' }) +
+      statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: (cur.capital ? `Thu + vốn có sẵn ${money(cur.capital)} − Chi − Đầu tư` : 'Thu − Chi − Đầu tư') + ' − Trả nợ' }) +
       statCard('🐷', 'ico-warn', 'Tỷ lệ tiết kiệm & đầu tư', cur.income ? rate.toFixed(1) + '%' : '—', { cls: 'muted', text: '(Thu − Chi) / Thu' });
 
     // Xu hướng 6 tháng
-    const labels = [], inc = [], exp = [], inv = [];
+    const labels = [], inc = [], exp = [], inv = [], rep = [];
     for (let i = 5; i >= 0; i--) {
       const s = new Date(t.getFullYear(), t.getMonth() - i, 1), e = new Date(t.getFullYear(), t.getMonth() - i + 1, 0);
       const r = sumRange(keyOf(s), keyOf(e));
-      labels.push(`T${s.getMonth() + 1}/${String(s.getFullYear()).slice(2)}`); inc.push(r.income); exp.push(r.expense); inv.push(r.invest);
+      labels.push(`T${s.getMonth() + 1}/${String(s.getFullYear()).slice(2)}`); inc.push(r.income); exp.push(r.expense); inv.push(r.invest); rep.push(r.repay);
     }
-    drawChart('dbTrendChart', barConfig(labels, inc, exp, inv));
+    drawChart('dbTrendChart', barConfig(labels, inc, exp, inv, rep));
     drawPie('dbPieChart', 'dbPieEmpty', cur.byCat, EXPENSE_CATS);
     $('#dbPieTable').innerHTML = catTable(cur.byCat, EXPENSE_CATS, cur.expense, 5);
     renderPortfolio(all);
@@ -471,7 +482,7 @@
     sel.value = [...sel.options].some(o => o.value === prev) ? prev : 'all';
   }
   function totals(list) {
-    const r = { income: 0, expense: 0, invest: 0, capital: 0 };
+    const r = { income: 0, expense: 0, invest: 0, capital: 0, repay: 0 };
     list.forEach(t => { r[isCapital(t) ? 'capital' : t.type] += isWithdraw(t) ? -t.amount : t.amount; });
     return r;
   }
@@ -491,7 +502,8 @@
       (show('income') && tot.capital ? `<span class="pill">Vốn có sẵn: ${money(tot.capital)}</span>` : '') +
       (show('expense') ? `<span class="pill expense">Chi: ${money(tot.expense)}</span>` : '') +
       (show('invest') ? `<span class="pill invest">Đầu tư: ${money(tot.invest)}</span>` : '') +
-      (type === 'all' ? `<span class="pill">Tiền mặt còn lại: <b>${money(tot.income + tot.capital - tot.expense - tot.invest)}</b></span>` : '');
+      (show('repay') ? `<span class="pill repay">Trả nợ: ${money(tot.repay)}</span>` : '') +
+      (type === 'all' ? `<span class="pill">Tiền mặt còn lại: <b>${money(tot.income + tot.capital - tot.expense - tot.invest - tot.repay)}</b></span>` : '');
 
     if (!list.length) {
       $('#txList').innerHTML = `<div class="card">${emptyState(state.transactions.length ? 'Không tìm thấy giao dịch phù hợp với bộ lọc.' : 'Chưa có giao dịch nào.', !state.transactions.length)}</div>`;
@@ -506,7 +518,7 @@
       const name = date === tk ? 'Hôm nay' : date === yk ? 'Hôm qua' : DOW[d.getDay()];
       const g = totals(items);
       html += `<div class="day-group"><div class="day-head"><span>${name}, ${dmy(d)}</span><span class="vals">
-        ${g.income + g.capital ? `<span class="income-text">+${money(g.income + g.capital)}</span>` : ''}${g.expense ? `<span class="expense-text">−${money(g.expense)}</span>` : ''}${g.invest ? `<span class="invest-text">${g.invest > 0 ? `Đầu tư ${money(g.invest)}` : `Rút vốn +${money(-g.invest)}`}</span>` : ''}</span></div>
+        ${g.income + g.capital ? `<span class="income-text">+${money(g.income + g.capital)}</span>` : ''}${g.expense ? `<span class="expense-text">−${money(g.expense)}</span>` : ''}${g.repay ? `<span class="repay-text">Trả nợ ${money(g.repay)}</span>` : ''}${g.invest ? `<span class="invest-text">${g.invest > 0 ? `Đầu tư ${money(g.invest)}` : `Rút vốn +${money(-g.invest)}`}</span>` : ''}</span></div>
         <div class="card flush"><div class="tx-list">${items.map(txRow).join('')}</div></div></div>`;
     }
     $('#txList').innerHTML = html;
@@ -533,6 +545,7 @@
       statCard('⬆️', 'ico-income', 'Tổng thu', money(cur.income), deltaInfo(cur.income, prev.income, true, pn)) +
       statCard('⬇️', 'ico-expense', 'Tổng chi', money(cur.expense), deltaInfo(cur.expense, prev.expense, false, pn)) +
       statCard('📊', 'ico-invest', 'Đầu tư (rót − rút)', money(cur.invest), deltaInfo(cur.invest, prev.invest, true, pn)) +
+      statCard('🏦', 'ico-repay', 'Trả nợ', money(cur.repay), deltaInfo(cur.repay, prev.repay, true, pn)) +
       statCard('💵', 'ico-primary', 'Tiền mặt còn lại', money(cur.cash), { cls: cur.cash >= 0 ? 'up-good' : 'up-bad', text: cur.income ? `Tiết kiệm & đầu tư ${rate.toFixed(1)}% thu nhập` : `${cur.count} giao dịch` }) +
       (days > 1
         ? statCard('📅', 'ico-warn', 'Chi trung bình / ngày', elapsed ? money(cur.expense / elapsed) : '—',
@@ -540,9 +553,9 @@
         : statCard('📅', 'ico-warn', 'Số giao dịch', String(cur.count), null));
 
     $('#rpTrendTitle').textContent = info.trendTitle;
-    const inc = [], exp = [], inv = [];
-    info.buckets.forEach(b => { const r = sumRange(keyOf(b.start), keyOf(b.end)); inc.push(r.income); exp.push(r.expense); inv.push(r.invest); });
-    drawChart('rpTrendChart', barConfig(info.buckets.map(b => b.label), inc, exp, inv));
+    const inc = [], exp = [], inv = [], rep = [];
+    info.buckets.forEach(b => { const r = sumRange(keyOf(b.start), keyOf(b.end)); inc.push(r.income); exp.push(r.expense); inv.push(r.invest); rep.push(r.repay); });
+    drawChart('rpTrendChart', barConfig(info.buckets.map(b => b.label), inc, exp, inv, rep));
 
     drawPie('rpExpPie', 'rpExpEmpty', cur.byCat, EXPENSE_CATS);
     drawPie('rpIncPie', 'rpIncEmpty', cur.byCat, INCOME_CATS);
@@ -550,6 +563,8 @@
     $('#rpIncTable').innerHTML = catTable(cur.byCat, INCOME_CATS, cur.income);
     drawPie('rpInvPie', 'rpInvEmpty', cur.byCat, INVEST_CATS);
     $('#rpInvTable').innerHTML = catTable(cur.byCat, INVEST_CATS, INVEST_CATS.reduce((a, c) => a + Math.max(cur.byCat[c.id] || 0, 0), 0));
+    drawPie('rpRepPie', 'rpRepEmpty', cur.byCat, REPAY_CATS);
+    $('#rpRepTable').innerHTML = catTable(cur.byCat, REPAY_CATS, cur.repay);
   }
 
   // ---------------- NGÂN SÁCH ----------------
@@ -602,7 +617,7 @@
     // Công nợ phải thu: tên từng khoản đổi được (vd. tên người nợ); thu được thì ghi sổ vào Thu nhập khác
     debt: [1, 2, 3, 4, 5].map(i => ({ k: 'd' + i, name: 'Khoản ' + i, cat: 'thukhac', editable: true })),
     out: [
-      { k: 'nganhang', name: 'Trả ngân hàng', cat: 'trano' },
+      { k: 'nganhang', name: 'Trả ngân hàng', cat: 'tr_nganhang', type: 'repay' },
       { k: 'bds',      name: 'Thanh toán tiền mua BĐS', cat: 'trabds' },
       { k: 'c1',       name: 'Khoản chi khác 1', cat: 'chikhac', editable: true },
       { k: 'c2',       name: 'Khoản chi khác 2', cat: 'chikhac', editable: true },
@@ -759,7 +774,7 @@
     // Ghi sổ là xác nhận tiền đã nhận / đã chi: ngày hẹn còn ở tương lai thì ghi theo hôm nay
     const date = l.date && l.date <= keyOf(today()) ? l.date : keyOf(today());
     if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?`, 'Ghi vào sổ')) return;
-    const tx = { id: uid(), createdAt: Date.now(), type: FC_TEXT[side].type, cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
+    const tx = { id: uid(), createdAt: Date.now(), type: def.type || FC_TEXT[side].type, cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
     state.transactions.push(tx);
     setFcLine(key, side, k, { done: true, txId: tx.id, date });
     renderCurrent(); toast(`✅ Đã ghi ${FC_TEXT[side].word} ${money(l.amount)} vào sổ`);
@@ -820,9 +835,11 @@
     $('#incomeCatList').innerHTML = rows(INCOME_CATS);
     $('#expenseCatList').innerHTML = rows(EXPENSE_CATS);
     $('#investCatList').innerHTML = rows(INVEST_CATS);
+    $('#repayCatList').innerHTML = rows(REPAY_CATS);
     $('#incomeCatTitle').textContent = `${INCOME_CATS.length} khoản thu nhập`;
     $('#expenseCatTitle').textContent = `${EXPENSE_CATS.length} khoản chi tiêu`;
     $('#investCatTitle').textContent = `${INVEST_CATS.length} khoản đầu tư`;
+    $('#repayCatTitle').textContent = `${REPAY_CATS.length} khoản trả nợ`;
   }
   async function download(name, content, mime) {
     const dl = window.claude && typeof window.claude.use === 'function' ? await window.claude.use('downloads') : null;
@@ -924,28 +941,29 @@
         ['Vốn có sẵn đưa vào (không tính là thu nhập)', xm(r.capital)],
         ['Tổng chi tiêu', xm(r.expense)],
         ['Đầu tư (rót vốn − rút vốn)', xm(r.invest)],
+        ['Trả nợ (không tính là chi tiêu)', xm(r.repay)],
         ['Chênh lệch thu − chi', { t: 'n', v: r.saving, f: 'B6-B8', z: MONEY_FMT }],
-        ['Tiền mặt còn lại (thu + vốn có sẵn − chi − đầu tư)', { t: 'n', v: r.cash, f: 'B6+B7-B8-B9', z: MONEY_FMT }],
-        ['Tỷ lệ tiết kiệm & đầu tư', { t: 'n', v: r.income ? r.saving / r.income : 0, f: 'IF(B6=0,0,B10/B6)', z: '0.0%' }],
+        ['Tiền mặt còn lại (thu + vốn có sẵn − chi − đầu tư − trả nợ)', { t: 'n', v: r.cash, f: 'B6+B7-B8-B9-B10', z: MONEY_FMT }],
+        ['Tỷ lệ tiết kiệm & đầu tư', { t: 'n', v: r.income ? r.saving / r.income : 0, f: 'IF(B6=0,0,B11/B6)', z: '0.0%' }],
         ['Số giao dịch', r.count],
         [],
         [`LŨY KẾ ĐẾN ${dmy(parseKey(toKey))}`, 'Số tiền (₫)'],
-        ['Tổng tài sản tích lũy (thu + vốn có sẵn − chi)', xm(acc.net)],
+        ['Tổng tài sản đang nắm giữ (thu + vốn có sẵn − chi − trả nợ)', xm(acc.net)],
         ['Tiền mặt', xm(acc.cash)],
         ['Đang đầu tư', xm(acc.invest)],
       ], [40, 22]));
     }
 
     if (sheetIds.includes('tx')) {
-      const rows = [['Ngày', 'Loại', 'Hạng mục', 'Tiền vào (₫) (thu nhập, vốn có sẵn)', 'Chi tiêu (₫)', 'Đầu tư (₫) (+rót / −rút)', 'Ghi chú']];
+      const rows = [['Ngày', 'Loại', 'Hạng mục', 'Tiền vào (₫) (thu nhập, vốn có sẵn)', 'Chi tiêu (₫)', 'Đầu tư (₫) (+rót / −rút)', 'Trả nợ (₫)', 'Ghi chú']];
       for (const x of txs) {
         const c = catOf(x.cat), type = isCapital(x) ? 'Vốn có sẵn' : TYPE_NAMES[x.type] + (x.type === 'invest' ? (x.dir === 'out' ? ' – Rút vốn' : ' – Rót vốn') : '');
         rows.push([xdate(x.date), type, c.name, x.type === 'income' ? xm(x.amount) : '', x.type === 'expense' ? xm(x.amount) : '',
-          x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.note || '']);
+          x.type === 'invest' ? xm(isWithdraw(x) ? -x.amount : x.amount) : '', x.type === 'repay' ? xm(x.amount) : '', x.note || '']);
       }
       const last = rows.length;
-      rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income + r.capital), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), '']);
-      add('tx', xSheet(rows, [12, 20, 34, 16, 16, 22, 44], [0, last - 1]));
+      rows.push(['TỔNG CỘNG', `${txs.length} giao dịch`, '', xsum('D', 2, last, r.income + r.capital), xsum('E', 2, last, r.expense), xsum('F', 2, last, r.invest), xsum('G', 2, last, r.repay), '']);
+      add('tx', xSheet(rows, [12, 20, 34, 16, 16, 22, 16, 44], [0, last - 1]));
     }
 
     if (sheetIds.includes('cat')) {
@@ -965,17 +983,17 @@
     }
 
     if (sheetIds.includes('month')) {
-      const rows = [['Tháng', 'Thu nhập (₫)', 'Vốn có sẵn (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫)', 'Chênh lệch thu − chi (₫)', 'Tiền mặt còn lại (₫)', 'Tỷ lệ tiết kiệm']];
+      const rows = [['Tháng', 'Thu nhập (₫)', 'Vốn có sẵn (₫)', 'Chi tiêu (₫)', 'Đầu tư (₫)', 'Trả nợ (₫)', 'Chênh lệch thu − chi (₫)', 'Tiền mặt còn lại (₫)', 'Tỷ lệ tiết kiệm']];
       months.forEach((mk, i) => {
         const [a, b] = monthRange(mk), x = sumRange(a < fromKey ? fromKey : a, b > toKey ? toKey : b), row = i + 2;
-        rows.push([mLabel(mk), xm(x.income), xm(x.capital), xm(x.expense), xm(x.invest),
-          { t: 'n', v: x.saving, f: `B${row}-D${row}`, z: MONEY_FMT }, { t: 'n', v: x.cash, f: `B${row}+C${row}-D${row}-E${row}`, z: MONEY_FMT },
-          { t: 'n', v: x.income ? x.saving / x.income : 0, f: `IF(B${row}=0,0,F${row}/B${row})`, z: '0.0%' }]);
+        rows.push([mLabel(mk), xm(x.income), xm(x.capital), xm(x.expense), xm(x.invest), xm(x.repay),
+          { t: 'n', v: x.saving, f: `B${row}-D${row}`, z: MONEY_FMT }, { t: 'n', v: x.cash, f: `B${row}+C${row}-D${row}-E${row}-F${row}`, z: MONEY_FMT },
+          { t: 'n', v: x.income ? x.saving / x.income : 0, f: `IF(B${row}=0,0,G${row}/B${row})`, z: '0.0%' }]);
       });
       const last = rows.length, n = last + 1;
       rows.push(['TỔNG CỘNG', xsum('B', 2, last, r.income), xsum('C', 2, last, r.capital), xsum('D', 2, last, r.expense), xsum('E', 2, last, r.invest),
-        xsum('F', 2, last, r.saving), xsum('G', 2, last, r.cash), { t: 'n', v: r.income ? r.saving / r.income : 0, f: `IF(B${n}=0,0,F${n}/B${n})`, z: '0.0%' }]);
-      add('month', xSheet(rows, [16, 16, 16, 16, 16, 22, 20, 15]));
+        xsum('F', 2, last, r.repay), xsum('G', 2, last, r.saving), xsum('H', 2, last, r.cash), { t: 'n', v: r.income ? r.saving / r.income : 0, f: `IF(B${n}=0,0,G${n}/B${n})`, z: '0.0%' }]);
+      add('month', xSheet(rows, [16, 16, 16, 16, 16, 16, 22, 20, 15]));
     }
 
     if (sheetIds.includes('budget')) {
@@ -1077,7 +1095,8 @@
       push('expense', 'thuetncn', rnd(8e5, 1.2e6), d(5), 'Thuế TNCN khấu trừ');
       if (base.getMonth() % 3 === 1) push('expense', 'trabds', 10e6, d(20), 'Thanh toán đợt mua căn hộ');
       push('expense', 'baohiem', 6e5, d(12), 'Bảo hiểm sức khỏe');
-      push('expense', 'trano', 2e6, d(15), 'Trả gốc + lãi vay');
+      push('repay', 'tr_nganhang', 2e6, d(15), 'Trả gốc vay ngân hàng');
+      push('repay', 'tr_laivay', rnd(6e5, 9e5), d(15), 'Lãi vay tháng');
       for (let day = 1; day <= maxDay; day++) {
         if (Math.random() < .85) push('expense', 'anuong', rnd(4e4, 2.5e5), d(day), notesFood[Math.floor(Math.random() * notesFood.length)]);
         if (Math.random() < .12) push('expense', 'dilai', rnd(3e5, 8e5), d(day), 'Đổ xăng ô tô');
@@ -1141,7 +1160,7 @@
       toast('✅ Đã cập nhật giao dịch');
     } else {
       state.transactions.push({ id: uid(), createdAt: Date.now(), ...data });
-      toast(`✅ Đã thêm ${{ income: 'khoản thu', expense: 'khoản chi', invest: mDir === 'out' ? 'khoản rút vốn' : 'khoản đầu tư' }[mType]} ${money(amount)}`);
+      toast(`✅ Đã thêm ${{ income: 'khoản thu', expense: 'khoản chi', invest: mDir === 'out' ? 'khoản rút vốn' : 'khoản đầu tư', repay: 'khoản trả nợ' }[mType]} ${money(amount)}`);
     }
     save(); closeModal(); renderCurrent();
     if (mType === 'expense') checkBudgetAfterSave(data);

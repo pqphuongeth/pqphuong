@@ -26,13 +26,18 @@ Ngoài ra có mục **Vốn có sẵn / Số dư đầu kỳ** (khi nhập kho�
 ### 23 khoản chi tiêu
 Nhà ở / Thuê nhà · Gia đình · Bố mẹ · Xăng xe ô tô · Phí xe ô tô · Điện thoại · Ăn uống & cà phê (ăn uống và cà phê hằng ngày) · Tiếp khách · Chi phí quà tặng, biếu khách hàng · Mua sắm cá nhân · Mua sắm cho con (đồ chơi, quần áo, đồ dùng học tập…) · Mua hàng TMĐT cá nhân · Sức khỏe / Y tế · Giáo dục / Học tập · Giải trí / Du lịch · Thể thao · Vệ sinh cá nhân (cắt tóc, gội đầu) · Phần mềm / App · Bảo hiểm · Trả nợ (gốc / lãi) · Trả tiền mua BĐS · Thuế TNCN · Chi phí khác
 
+### 5 khoản trả nợ
+Trả nợ ngân hàng (gốc) · Trả lãi vay · Thẻ tín dụng / Trả góp · Trả nợ cá nhân / người thân · Trả nợ khác
+
+Trả nợ làm giảm tiền mặt nhưng **không tính là chi tiêu**, nên khoản trả lớn (ví dụ trả ngân hàng) không làm sai thống kê chi tiêu. Trong mục Dòng tiền, khoản "Trả ngân hàng" khi bấm Ghi vào sổ được ghi thành Trả nợ ngân hàng (gốc).
+
 ### 5 khoản đầu tư
 Chứng khoán / Cổ phiếu · Cryptos · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
 
 Mỗi giao dịch đầu tư là **Rót vốn** (chuyển tiền mặt vào đầu tư) hoặc **Rút vốn** (bán / tất toán về tiền mặt).
 Đầu tư không bị tính là chi tiêu: tiền chỉ chuyển từ *tiền mặt* sang *tài sản đầu tư*.
-- Tổng tài sản = Tổng thu − Tổng chi
-- Tiền mặt = Tổng thu − Tổng chi − (Rót vốn − Rút vốn)
+- Tổng tài sản = Tổng thu + vốn có sẵn − Tổng chi − Trả nợ
+- Tiền mặt = Tổng tài sản − (Rót vốn − Rút vốn)
 - Lãi/cổ tức nhận được ghi ở khoản thu "Lãi đầu tư / Cổ tức" hoặc "Lãi tiết kiệm"
 
 ## Cấu trúc

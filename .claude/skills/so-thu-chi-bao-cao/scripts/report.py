@@ -17,7 +17,8 @@ Cách dùng:
 Quy tắc tính (giống app):
   - Thu nhập không gồm hạng mục 'vonsan' (Vốn có sẵn / Số dư đầu kỳ).
   - Đầu tư: dir 'in' = rót vốn (tiền mặt giảm), dir 'out' = rút vốn (tiền mặt tăng).
-  - Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu; tiền mặt = tổng tài sản − đầu tư ròng.
+  - Trả nợ (type 'repay') làm giảm tiền mặt nhưng KHÔNG tính là chi tiêu.
+  - Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ; tiền mặt = tổng tài sản − đầu tư ròng.
   - Công nợ phải thu chưa thu KHÔNG tính vào tiền mặt / tài sản.
 """
 import argparse, datetime, html, json, pathlib, sys
@@ -35,8 +36,10 @@ EXPENSE = {'nhao': 'Nhà ở / Thuê nhà', 'concai': 'Gia đình', 'bome': 'B�
            'chikhac': 'Chi phí khác'}
 INVEST = {'chungkhoan': 'Chứng khoán / Cổ phiếu', 'quy': 'Cryptos', 'vang': 'Vàng / Bạc', 'batdongsan': 'Bất động sản',
           'guitietkiem': 'Gửi tiết kiệm'}
+REPAY = {'tr_nganhang': 'Trả nợ ngân hàng (gốc)', 'tr_laivay': 'Trả lãi vay', 'tr_thetindung': 'Thẻ tín dụng / Trả góp',
+         'tr_canhan': 'Trả nợ cá nhân / người thân', 'tr_khac': 'Trả nợ khác'}
 LEGACY = {'diennuoc': 'nhao'}
-NAMES = {**INCOME, **CAPITAL, **EXPENSE, **INVEST}
+NAMES = {**INCOME, **CAPITAL, **EXPENSE, **INVEST, **REPAY}
 FC_NAMES = {'luong': 'Lương', 'hhban': 'Hoa hồng từ bán hàng (công ty)', 'hhql': 'Hoa hồng quản lý (công ty)',
             'hh1': 'Hoa hồng khác 1', 'hh2': 'Hoa hồng khác 2', 'khac': 'Thu nhập khác', 've1': 'Khoản về khác 1',
             've2': 'Khoản về khác 2', 'nganhang': 'Trả ngân hàng', 'bds': 'Thanh toán tiền mua BĐS',
@@ -80,7 +83,7 @@ def load(folder):
 
 def flows(tx, a, b):
     """Tổng hợp giao dịch có ngày trong [a, b]."""
-    r = dict(income=0, capital=0, expense=0, inv_in=0, inv_out=0, count=0, by_exp={}, by_inc={}, items=[])
+    r = dict(income=0, capital=0, expense=0, repay=0, inv_in=0, inv_out=0, count=0, by_exp={}, by_inc={}, by_rep={}, items=[])
     for t in tx:
         if not (a <= t['date'] <= b): continue
         r['count'] += 1; r['items'].append(t); amt = t['amount']
@@ -89,11 +92,13 @@ def flows(tx, a, b):
             else: r['income'] += amt; r['by_inc'][t['cat']] = r['by_inc'].get(t['cat'], 0) + amt
         elif t['type'] == 'expense':
             r['expense'] += amt; r['by_exp'][t['cat']] = r['by_exp'].get(t['cat'], 0) + amt
+        elif t['type'] == 'repay':
+            r['repay'] += amt; r['by_rep'][t['cat']] = r['by_rep'].get(t['cat'], 0) + amt
         elif t['type'] == 'invest':
             r['inv_out' if t.get('dir') == 'out' else 'inv_in'] += amt
     r['invest'] = r['inv_in'] - r['inv_out']
     r['saving'] = r['income'] - r['expense']
-    r['cash'] = r['income'] + r['capital'] - r['expense'] - r['invest']
+    r['cash'] = r['income'] + r['capital'] - r['expense'] - r['invest'] - r['repay']
     r['items'].sort(key=lambda t: (t['date'], t.get('createdAt', 0)))
     return r
 
@@ -104,7 +109,7 @@ def position(tx, upto):
     for t in tx:
         if t['type'] == 'invest' and t['date'] <= upto:
             port[t['cat']] = port.get(t['cat'], 0) + (-t['amount'] if t.get('dir') == 'out' else t['amount'])
-    return dict(assets=r['income'] + r['capital'] - r['expense'], cash=r['cash'], invest=r['invest'],
+    return dict(assets=r['income'] + r['capital'] - r['expense'] - r['repay'], cash=r['cash'], invest=r['invest'],
                 port={k: v for k, v in port.items() if v})
 
 
@@ -170,6 +175,10 @@ def text_day(tx, forecast, debts, budgets, day):
     exp = [t for t in r['items'] if t['type'] == 'expense']
     L.append(f"📤 Tổng chi: {vnd(r['expense'])} ({len(exp)} khoản)")
     for t in sorted(exp, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
+    rep = [t for t in r['items'] if t['type'] == 'repay']
+    if rep:
+        L.append(f"🏦 Trả nợ: {vnd(r['repay'])} (không tính vào chi tiêu)")
+        for t in sorted(rep, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
     if not r['count']: L.append("Hôm nay chưa ghi khoản thu chi nào. Nhớ ghi bổ sung trong app.")
     L.append(f"💵 Tiền mặt hiện có: {vnd(pos['cash'])}")
     L.append(f"📅 Tháng {day.month}: thu {tr(m['income'])} · chi {tr(m['expense'])} · TB {tr(m['expense'] / day.day)}/ngày")
@@ -194,6 +203,7 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     L.append(f"   TB {vnd(r['expense'] / days)}/ngày · tiết kiệm {pct(r['saving'] / r['income']) if r['income'] else '—'}")
     top = sorted(r['by_exp'].items(), key=lambda kv: -kv[1])[:3]
     if top: L.append('   Chi nhiều nhất: ' + ', '.join(f"{cat_name(c)} {tr(v)}" for c, v in top))
+    if r['repay']: L.append(f"🏦 Trả nợ: {vnd(r['repay'])}{delta(r['repay'], p['repay'])} (không tính chi tiêu)")
     if r['inv_in'] or r['inv_out']: L.append(f"📊 Đầu tư: rót {tr(r['inv_in'])} · rút {tr(r['inv_out'])}")
     L.append(f"💰 Tổng tài sản {vnd(pos['assets'])} · tiền mặt {vnd(pos['cash'])}")
     open_debt = sum(l['amount'] for l in debts.values() if l.get('amount') and not l.get('done'))
@@ -244,6 +254,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
     def tx_row(t):
         if t['type'] == 'income': kind, cls, sg = ('Vốn có sẵn', 'muted', '+') if t['cat'] in CAPITAL else ('Thu nhập', 'pos', '+')
         elif t['type'] == 'expense': kind, cls, sg = 'Chi tiêu', 'neg', '−'
+        elif t['type'] == 'repay': kind, cls, sg = 'Trả nợ', 'muted', '−'
         else: kind, cls, sg = ('Đầu tư · rút vốn', 'inv', '+') if t.get('dir') == 'out' else ('Đầu tư · rót vốn', 'inv', '−')
         return (f'<tr><td class="num">{dmy(t["date"])}</td><td>{kind}</td><td>{e(cat_name(t["cat"]))}</td>'
                 f'<td class="muted">{e(t.get("note") or "")}</td><td class="r num {cls}">{sg}{num(t["amount"])}</td></tr>')
@@ -256,9 +267,10 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
 
     port = ''.join(f'<tr><td>{e(cat_name(c))}</td><td class="r num">{num(v)}</td><td class="r">{pct(v / pos["invest"]) if pos["invest"] else ""}</td></tr>'
                    for c, v in sorted(pos['port'].items(), key=lambda kv: -kv[1]))
-    lede = (f'Tổng tài sản đến {dmy(b)} là <b>{vnd(pos["assets"])}</b>, gồm {vnd(pos["cash"])} tiền mặt và {vnd(pos["invest"])} đang đầu tư.'
+    lede = (f'Tổng tài sản đang nắm giữ đến {dmy(b)} là <b>{vnd(pos["assets"])}</b>, gồm {vnd(pos["cash"])} tiền mặt và {vnd(pos["invest"])} đang đầu tư.'
             + (f' Còn <b>{vnd(open_debt)}</b> công nợ chưa thu.' if open_debt else '')
             + f' Trong {label} này: thu nhập {vnd(r["income"])}, chi tiêu {vnd(r["expense"])}'
+            + (f', trả nợ {vnd(r["repay"])}' if r['repay'] else '')
             + (f', tiết kiệm {pct(r["saving"] / r["income"])} thu nhập.' if r['income'] else '.')
             + (f' Kế hoạch tháng {b.month} còn phải chi {vnd(pout)}, cần ít nhất <b>{vnd(need)}</b> tiền về trước hạn.' if need else ''))
 
@@ -313,6 +325,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
         <tr><td>Chi tiêu</td><td class="r num neg">−{num(r['expense'])}</td></tr>
         <tr><td>Rót vốn đầu tư</td><td class="r num inv">−{num(r['inv_in'])}</td></tr>
         <tr><td>Rút vốn đầu tư</td><td class="r num inv">+{num(r['inv_out'])}</td></tr>
+        <tr><td>Trả nợ (không tính chi tiêu)</td><td class="r num">−{num(r['repay'])}</td></tr>
       </tbody><tfoot><tr><td>Tiền mặt tăng / giảm</td><td class="r num">{num(r['cash'])}</td></tr></tfoot></table></div></div>
       <div style="display:flex;flex-direction:column;gap:10px;min-width:0"><h3>Chi tiêu theo hạng mục</h3><div class="bars">{bars}</div></div>
     </div></div>

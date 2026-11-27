@@ -25,7 +25,7 @@ Các file nằm ở `<out_dir>/data/users/me/`:
 
 | Tài liệu | Nội dung |
 |---|---|
-| `m-YYYY-MM` | `{tx: [...]}` giao dịch của tháng: `type` income/expense/invest, `cat`, `amount`, `date`, `note`, `dir` (đầu tư: `in` rót vốn, `out` rút vốn) |
+| `m-YYYY-MM` | `{tx: [...]}` giao dịch của tháng: `type` income/expense/invest/repay, `cat`, `amount`, `date`, `note`, `dir` (đầu tư: `in` rót vốn, `out` rút vốn) |
 | `f-YYYY-MM` | kế hoạch dòng tiền tháng: `in` (tới hạn nhận), `out` (phải chi); mỗi dòng `amount, date, note, label, done` |
 | `debts` | công nợ phải thu (tiền người khác còn nợ, chưa thu): `d1..d5` |
 | `meta` | `budgets` (hạn mức chi theo hạng mục), `catNotes` |
@@ -41,7 +41,7 @@ node scripts/html_to_pdf.js bao-cao.html bao-cao.pdf      # khi cần file PDF
 ```
 
 - `--date` là ngày chốt số liệu theo giờ Việt Nam (UTC+7). Bỏ trống thì script tự lấy hôm nay giờ Việt Nam. Tác vụ lịch luôn dùng mặc định này.
-- `day`: thu nhập trong ngày, dòng vốn, tổng chi và **từng khoản chi**, tiền mặt hiện có, khoản sắp tới hạn trong 3 ngày.
+- `day`: thu nhập trong ngày, dòng vốn, tổng chi và **từng khoản chi**, các khoản trả nợ, tiền mặt hiện có, khoản sắp tới hạn trong 3 ngày.
 - `week`: thứ Hai tới ngày chốt, so với cùng kỳ tuần trước, khoản tới hạn trong 14 ngày.
 - `month`: ngày 1 tới ngày chốt, so với cùng số ngày tháng trước.
 - `--text` là bản tóm tắt ngắn để gửi điện thoại; `--html` là trang báo cáo đầy đủ (không có `<html>/<head>`, đăng thẳng lên Artifact được).
@@ -49,7 +49,8 @@ node scripts/html_to_pdf.js bao-cao.html bao-cao.pdf      # khi cần file PDF
 Quy tắc tính (giống app, script đã làm sẵn; nhắc ở đây để giải thích khi người dùng hỏi):
 - **Vốn có sẵn / Số dư đầu kỳ** (`cat: vonsan`) cộng vào tiền mặt nhưng **không phải thu nhập**, nên không làm sai tỷ lệ tiết kiệm.
 - Rót vốn đầu tư làm tiền mặt giảm, rút vốn làm tiền mặt tăng; cả hai không phải thu / chi.
-- Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu. Tiền mặt = tổng tài sản − đầu tư ròng.
+- **Trả nợ** (`type: repay`: trả nợ ngân hàng, lãi vay, thẻ tín dụng / trả góp, nợ cá nhân, nợ khác) làm tiền mặt giảm nhưng **không tính là chi tiêu**, để khoản trả lớn không làm sai chi tiêu và chi trung bình / ngày.
+- Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ. Tiền mặt = tổng tài sản − đầu tư ròng.
 - Công nợ phải thu chưa thu **không** tính vào tiền mặt hay tài sản.
 - Chi trung bình / ngày chia cho số ngày **đã qua** trong kỳ, không chia cho cả kỳ.
 

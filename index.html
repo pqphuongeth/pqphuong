@@ -125,6 +125,7 @@
             <option value="income">Thu nhập</option>
             <option value="expense">Chi tiêu</option>
             <option value="invest">Đầu tư</option>
+            <option value="repay">Trả nợ</option>
           </select>
           <select id="fCat" class="input"></select>
           <input type="date" id="fFrom" class="input" title="Từ ngày" />
@@ -184,6 +185,17 @@
               <div class="empty-chart hidden" id="rpInvEmpty">Không có khoản đầu tư trong kỳ</div>
             </div>
             <div id="rpInvTable"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Trả nợ theo hạng mục</h3></div>
+          <div class="grid-2">
+            <div>
+              <div class="chart-box chart-pie"><canvas id="rpRepPie"></canvas></div>
+              <div class="empty-chart hidden" id="rpRepEmpty">Không có khoản trả nợ trong kỳ</div>
+            </div>
+            <div id="rpRepTable"></div>
           </div>
         </div>
       </section>
@@ -291,7 +303,7 @@
         <div class="card">
           <h3>Danh mục</h3>
           <p class="muted small">Ghi chú cho từng hạng mục (sửa trực tiếp, tự lưu). Ghi chú hiện khi chọn hạng mục lúc nhập giao dịch và trên thẻ ngân sách.</p>
-          <div class="grid-3">
+          <div class="grid-4">
             <div>
               <h4 class="income-text" id="incomeCatTitle">10 khoản thu nhập</h4>
               <div class="cat-notes" id="incomeCatList"></div>
@@ -303,6 +315,10 @@
             <div>
               <h4 class="invest-text" id="investCatTitle">5 khoản đầu tư</h4>
               <div class="cat-notes" id="investCatList"></div>
+            </div>
+            <div>
+              <h4 class="repay-text" id="repayCatTitle">5 khoản trả nợ</h4>
+              <div class="cat-notes" id="repayCatList"></div>
             </div>
           </div>
         </div>
@@ -324,6 +340,7 @@
         <button type="button" data-type="expense" class="active expense">Chi tiêu</button>
         <button type="button" data-type="income" class="income">Thu nhập</button>
         <button type="button" data-type="invest" class="invest">Đầu tư</button>
+        <button type="button" data-type="repay" class="repay">Trả nợ</button>
       </div>
       <div class="dir-toggle hidden" id="dirToggle">
         <button type="button" data-dir="in" class="active">📥 Rót vốn <small>(chuyển tiền vào đầu tư)</small></button>
