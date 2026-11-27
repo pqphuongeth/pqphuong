@@ -31,6 +31,8 @@ Trả nợ ngân hàng (gốc) · Trả lãi vay · Thẻ tín dụng / Trả g�
 
 Trả nợ làm giảm tiền mặt nhưng **không tính là chi tiêu**, nên khoản trả lớn (ví dụ trả ngân hàng) không làm sai thống kê chi tiêu. Trong mục Dòng tiền, khoản "Trả ngân hàng" khi bấm Ghi vào sổ được ghi thành Trả nợ ngân hàng (gốc).
 
+**Dư nợ phải trả** (trong mục Dòng tiền): nhập dư nợ hiện tại của từng khoản vay. Mỗi khoản Trả nợ gắn với khoản vay (chọn ở ô "Trừ vào khoản nợ" khi nhập) được trừ dần vào dư nợ; Trả lãi vay không trừ vào nợ gốc. Tổng quan hiện tổng dư nợ phải trả và tài sản ròng (tài sản − dư nợ); file Excel có sheet "Dư nợ phải trả".
+
 ### 5 khoản đầu tư
 Chứng khoán / Cổ phiếu · Cryptos · Vàng / Bạc · Bất động sản · Gửi tiết kiệm
 

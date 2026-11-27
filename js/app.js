@@ -90,9 +90,9 @@
   function load() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY));
-      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {}, debts: raw.debts || {} };
+      if (raw && Array.isArray(raw.transactions)) return { transactions: raw.transactions.map(migrateTx), budgets: raw.budgets || {}, catNotes: raw.catNotes || {}, forecast: raw.forecast || {}, debts: raw.debts || {}, loans: raw.loans || {} };
     } catch (e) { /* bỏ qua */ }
-    return { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {} };
+    return { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {} };
   }
   function cloudDocs() {
     const docs = { meta: JSON.stringify({ budgets: state.budgets, catNotes: state.catNotes }) };
@@ -101,6 +101,7 @@
     for (const [k, list] of Object.entries(byMonth)) docs[k] = JSON.stringify({ tx: list.slice().sort((a, b) => a.id.localeCompare(b.id)) });
     for (const [k, f] of Object.entries(state.forecast || {})) if (fcHasData(f)) docs['f-' + k] = JSON.stringify(f);
     if (Object.keys(state.debts || {}).length) docs.debts = JSON.stringify(state.debts);
+    if (Object.keys(state.loans || {}).length) docs.loans = JSON.stringify(state.loans);
     return docs;
   }
   function queueWrite(id, body) {
@@ -133,14 +134,15 @@
     if (!db || !id) return setSyncStatus('local', '💾 Lưu trên trình duyệt này');
     cloud = { db, base: 'data/users/' + id };
     storageMode = 'cloud';
-    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {} };
+    state = { transactions: [], budgets: {}, catNotes: {}, forecast: {}, debts: {}, loans: {} };
     renderCurrent();
     let timer = setTimeout(() => setSyncStatus('wait', '⚠️ Chưa tải được dữ liệu, đang thử lại…'), 10000);
     db.collection(cloud.base).onSnapshot(snap => {
       const tx = [];
-      let budgets = {}, catNotes = {}, debts = {}; const forecast = {};
+      let budgets = {}, catNotes = {}, debts = {}, loans = {}; const forecast = {};
       for (const d of snap.docs) {
         const body = d.data() || {};
+        if (d.id === 'loans') { loans = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id === 'debts') { debts = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         if (d.id.startsWith('f-')) { forecast[d.id.slice(2)] = JSON.parse(JSON.stringify(body)); synced[d.id] = JSON.stringify(body); continue; }
         synced[d.id] = d.id === 'meta' ? JSON.stringify({ budgets: body.budgets || {}, catNotes: body.catNotes || {} }) : JSON.stringify({ tx: body.tx || [] });
@@ -148,7 +150,7 @@
         else if (Array.isArray(body.tx)) body.tx.forEach(t => tx.push(migrateTx({ ...t })));
       }
       // Bản cũ lưu công nợ trong từng tháng: chuyển sang danh sách riêng (lần lưu kế tiếp sẽ ghi lại)
-      state = migrateDebts({ transactions: tx, budgets, catNotes, forecast, debts });
+      state = migrateDebts({ transactions: tx, budgets, catNotes, forecast, debts, loans });
       if (!snap.metadata.fromCache) { clearTimeout(timer); setSyncStatus('cloud', '☁️ Đã lưu vào tài khoản'); }
       renderCurrent();
     }, () => {
@@ -302,7 +304,7 @@
     const c = catOf(t.cat);
     return `<div class="tx" data-id="${t.id}">
       <div class="tx-ico" style="background:${c.color}22">${c.icon}</div>
-      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
+      <div class="tx-main"><div class="tx-cat">${esc(c.name)}${t.type === 'repay' && t.loan && state.loans && state.loans[t.loan] ? ` <span class="tag repay">→ ${esc(loanName(state.loans[t.loan]))}</span>` : ''}${t.type === 'invest' ? ` <span class="tag ${t.dir === 'out' ? 'out' : ''}">${t.dir === 'out' ? 'Rút vốn' : 'Rót vốn'}</span>` : ''}</div><div class="tx-note">${esc(t.note) || '<span style="opacity:.6">Không có ghi chú</span>'}</div></div>
       <div class="tx-amt ${t.type}">${txSigned(t)}</div>
       <button class="tx-del" data-del="${t.id}" title="Xóa">🗑️</button>
     </div>`;
@@ -403,7 +405,9 @@
 
     $('#dbBalance').textContent = money(all.net);
     const debtOpen = fcTotals(monthKey(t)).debtOpen;
-    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}` + (debtOpen ? ` • Công nợ chưa thu ${money(debtOpen)}` : '');
+    const lt = loansTotal();
+    $('#dbBalanceSub').textContent = `Tiền mặt ${money(all.cash)} • Đang đầu tư ${money(all.invest)}` + (debtOpen ? ` • Công nợ chưa thu ${money(debtOpen)}` : '')
+      + (lt.count ? ` • Dư nợ phải trả ${money(lt.remaining)} • Tài sản ròng ${money(all.net - lt.remaining)}` : '');
     $('#dbToday').textContent = money(todayS.expense);
     const monthExpToDate = sumRange(keyOf(mStart), tk).expense;
     $('#dbAvg').textContent = money(monthExpToDate / t.getDate());
@@ -414,7 +418,7 @@
       statCard('⬆️', 'ico-income', `Thu nhập tháng ${t.getMonth() + 1}`, money(cur.income), deltaInfo(cur.income, prev.income, true, 'tháng trước')) +
       statCard('⬇️', 'ico-expense', `Chi tiêu tháng ${t.getMonth() + 1}`, money(cur.expense), deltaInfo(cur.expense, prev.expense, false, 'tháng trước')) +
       statCard('📊', 'ico-invest', `Đầu tư tháng ${t.getMonth() + 1}`, money(cur.invest), deltaInfo(cur.invest, prev.invest, true, 'tháng trước')) +
-      statCard('🏦', 'ico-repay', `Trả nợ tháng ${t.getMonth() + 1}`, money(cur.repay), { cls: 'muted', text: 'Không tính vào chi tiêu' }) +
+      statCard('🏦', 'ico-repay', `Trả nợ tháng ${t.getMonth() + 1}`, money(cur.repay), { cls: 'muted', text: lt.count ? `Dư nợ còn phải trả ${money(lt.remaining)}` : 'Không tính vào chi tiêu' }) +
       statCard('💵', 'ico-primary', 'Tiền mặt còn lại tháng này', money(cur.cash), { cls: 'muted', text: (cur.capital ? `Thu + vốn có sẵn ${money(cur.capital)} − Chi − Đầu tư` : 'Thu − Chi − Đầu tư') + ' − Trả nợ' }) +
       statCard('🐷', 'ico-warn', 'Tỷ lệ tiết kiệm & đầu tư', cur.income ? rate.toFixed(1) + '%' : '—', { cls: 'muted', text: '(Thu − Chi) / Thu' });
 
@@ -654,6 +658,25 @@
     }
     return r;
   }
+  // Dư nợ phải trả: mỗi khoản vay có dư nợ ban đầu (tính từ một ngày); giao dịch Trả nợ gắn với khoản vay (t.loan)
+  // được trừ dần, trừ "Trả lãi vay" vì lãi không làm giảm nợ gốc.
+  const loanList = () => Object.entries(state.loans || {}).map(([id, l]) => ({ id, ...l })).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  function loanInfo(l, upto = '9999-12-31') {
+    let paid = 0, interest = 0, times = 0;
+    for (const t of state.transactions) {
+      if (t.type !== 'repay' || t.loan !== l.id || t.date > upto || (l.date && t.date < l.date)) continue;
+      if (t.cat === 'tr_laivay') interest += t.amount; else { paid += t.amount; times++; }
+    }
+    const principal = Number(l.amount) || 0;
+    return { principal, paid, interest, times, remaining: Math.max(principal - paid, 0), over: Math.max(paid - principal, 0) };
+  }
+  function loansTotal(upto) {
+    const r = { principal: 0, paid: 0, interest: 0, remaining: 0, count: 0 };
+    for (const l of loanList()) { const i = loanInfo(l, upto); r.principal += i.principal; r.paid += i.paid; r.interest += i.interest; r.remaining += i.remaining; if (i.principal) r.count++; }
+    return r;
+  }
+  const loanName = l => l.name || 'Khoản nợ chưa đặt tên';
+
   function migrateDebts(st) {
     st.debts = { ...(st.debts || {}) };
     const free = () => FC_LINES.debt.map(d => d.k).find(k => !st.debts[k]);
@@ -721,6 +744,33 @@
     const ae = document.activeElement;
     if (ae && ae.tagName === 'INPUT' && ae.closest('.fc-row')) return;
     for (const side of FC_SIDES) $('#fcList-' + side).innerHTML = FC_LINES[side].map(def => fcRow(key, side, def)).join('');
+    renderLoans();
+  }
+  function loanProgress(l) {
+    const i = loanInfo(l), p = i.principal ? Math.min(i.paid / i.principal * 100, 100) : 0;
+    return `<span>Đã trả gốc <b>${money(i.paid)}</b>${i.times ? ` (${i.times} lần)` : ''}${i.interest ? ` · Lãi đã trả ${money(i.interest)}` : ''}</span>
+      <span class="loan-left">${i.principal ? (i.remaining ? `Còn phải trả <b>${money(i.remaining)}</b>` : `<b class="income-text">Đã trả hết</b>${i.over ? ` (trả dư ${money(i.over)})` : ''}`) : 'Nhập dư nợ để theo dõi'}</span>
+      <div class="bar thick"><i style="width:${p}%;background:var(--repay)"></i></div>`;
+  }
+  function renderLoans() {
+    const list = loanList();
+    $('#loanList').innerHTML = list.length ? list.map(l => `<div class="fc-row loan-row" data-loan="${l.id}">
+      <div class="fc-name"><input class="input fc-label loan-name" id="loan-${l.id}-name" maxlength="60" placeholder="Tên khoản nợ (vd: Vay mua nhà ngân hàng)" value="${esc(l.name || '')}" aria-label="Tên khoản nợ" /></div>
+      <label class="fc-cell"><span>Dư nợ ban đầu (₫)</span><input class="input fc-amount loan-amount" id="loan-${l.id}-amount" inputmode="numeric" placeholder="0" value="${l.amount ? nf.format(l.amount) : ''}" /></label>
+      <label class="fc-cell"><span>Tính từ ngày</span><input type="date" class="input loan-date" id="loan-${l.id}-date" value="${esc(l.date || '')}" /></label>
+      <label class="fc-cell fc-note-cell"><span>Ghi chú</span><input class="input loan-note" id="loan-${l.id}-note" maxlength="120" placeholder="Lãi suất, kỳ hạn…" value="${esc(l.note || '')}" /></label>
+      <button type="button" class="fc-status loan-del" data-loan-del="${l.id}">🗑️ Xóa</button>
+      <div class="loan-progress" id="loan-${l.id}-prog">${loanProgress(l)}</div>
+    </div>`).join('') : '<div class="empty small">Chưa có khoản nợ nào. Bấm “＋ Thêm khoản nợ” và nhập dư nợ hiện tại.</div>';
+  }
+  function renderLoanSum() {
+    const t = loansTotal();
+    $('#loanSum').innerHTML = `<div class="fc-db">
+      <div><span class="muted small">Tổng dư nợ ban đầu</span><b>${money(t.principal)}</b></div>
+      <div><span class="muted small">Đã trả gốc</span><b class="income-text">${money(t.paid)}</b></div>
+      <div><span class="muted small">Lãi đã trả</span><b>${money(t.interest)}</b></div>
+      <div><span class="muted small">Tổng dư nợ phải trả</span><b class="repay-text">${money(t.remaining)}</b></div>
+    </div><div class="bar thick"><i style="width:${t.principal ? Math.min(t.paid / t.principal * 100, 100) : 0}%;background:var(--repay)"></i></div>`;
   }
   function renderFcSummary() {
     const key = fcKeyNow(), t = fcTotals(key);
@@ -735,6 +785,7 @@
       statCard('💵', 'ico-warn', 'Tiền mặt sau khi thu/chi hết', money(projected), { cls: projected >= 0 ? 'muted' : 'up-bad', text: `Tiền mặt hiện có ${money(all.cash)}` });
     const bar = (done, total, cls) => `<div class="bar thick"><i style="width:${total ? Math.min(done / total * 100, 100) : 0}%;background:var(--${cls})"></i></div>`;
     $('#fcTotal-in').innerHTML = `<span>Tổng tới hạn nhận</span><b class="income-text">${money(t.in)}</b>${bar(t.inDone, t.in, 'income')}`;
+    renderLoanSum();
     $('#fcTotal-debt').innerHTML = `<span>Tổng công nợ chưa thu</span><b class="invest-text">${money(t.debtOpen)}</b>${bar(t.debtAll - t.debtOpen, t.debtAll, 'invest')}`;
     $('#fcTotal-out').innerHTML = `<span>Tổng dự kiến chi</span><b class="expense-text">${money(t.out)}</b>${bar(t.outDone, t.out, 'expense')}`;
   }
@@ -773,8 +824,12 @@
     if (!(l.amount > 0)) { toast('Nhập số tiền trước khi ghi vào sổ'); return; }
     // Ghi sổ là xác nhận tiền đã nhận / đã chi: ngày hẹn còn ở tương lai thì ghi theo hôm nay
     const date = l.date && l.date <= keyOf(today()) ? l.date : keyOf(today());
-    if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?`, 'Ghi vào sổ')) return;
+    const loans = def.type === 'repay' ? loanList().filter(x => loanInfo(x).remaining > 0) : [];
+    const loanTxt = def.type !== 'repay' ? '' : loans.length === 1 ? ` Trừ vào khoản nợ "${loanName(loans[0])}".`
+      : loans.length > 1 ? ' Chưa gắn với khoản nợ nào: sửa giao dịch trong Sổ giao dịch để chọn khoản nợ cần trừ.' : '';
+    if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?${loanTxt}`, 'Ghi vào sổ')) return;
     const tx = { id: uid(), createdAt: Date.now(), type: def.type || FC_TEXT[side].type, cat: def.cat, amount: l.amount, date, note: [fcName(def, l), l.note].filter(Boolean).join(' – ').slice(0, 120) };
+    if (loans.length === 1) tx.loan = loans[0].id;
     state.transactions.push(tx);
     setFcLine(key, side, k, { done: true, txId: tx.id, date });
     renderCurrent(); toast(`✅ Đã ghi ${FC_TEXT[side].word} ${money(l.amount)} vào sổ`);
@@ -805,7 +860,33 @@
     view.addEventListener('input', e => {
       if (e.target.classList.contains('fc-amount')) { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; }
     });
+    $('#loanAdd').addEventListener('click', () => {
+      const id = 'L' + uid();
+      state.loans = { ...(state.loans || {}), [id]: { name: '', amount: 0, date: keyOf(today()), createdAt: Date.now() } };
+      save(); renderLoans(); renderLoanSum();
+      setTimeout(() => { const el = document.getElementById(`loan-${id}-name`); if (el) el.focus(); }, 30);
+    });
+    view.addEventListener('click', async e => {
+      const b = e.target.closest('[data-loan-del]'); if (!b) return;
+      const id = b.dataset.loanDel, l = state.loans[id];
+      if (!await askConfirm(`Xóa khoản nợ "${loanName(l)}"? Các giao dịch trả nợ đã ghi vẫn giữ nguyên, chỉ bỏ liên kết với khoản nợ này.`, 'Xóa')) return;
+      const n = { ...state.loans }; delete n[id]; state.loans = n;
+      state.transactions.forEach(t => { if (t.loan === id) delete t.loan; });
+      save(); renderCurrent(); toast('🗑️ Đã xóa khoản nợ');
+    });
     view.addEventListener('change', e => {
+      const lr = e.target.closest('.loan-row');
+      if (lr) {
+        const id = lr.dataset.loan, cls = e.target.classList, cur = state.loans[id]; if (!cur) return;
+        const patch = cls.contains('loan-amount') ? { amount: parseAmount(e.target.value) } : cls.contains('loan-date') ? { date: e.target.value }
+          : cls.contains('loan-note') ? { note: e.target.value.trim() } : cls.contains('loan-name') ? { name: e.target.value.trim() } : null;
+        if (!patch) return;
+        state.loans = { ...state.loans, [id]: { ...cur, ...patch } };
+        save();
+        const pr = document.getElementById(`loan-${id}-prog`); if (pr) pr.innerHTML = loanProgress({ id, ...state.loans[id] });
+        renderLoanSum();
+        return;
+      }
       const row = e.target.closest('.fc-row'); if (!row) return;
       const { side, k } = row.dataset, cls = e.target.classList;
       const patch = cls.contains('fc-amount') ? { amount: parseAmount(e.target.value) }
@@ -864,6 +945,7 @@
     { id: 'month',    name: 'Theo tháng' },
     { id: 'budget',   name: 'Ngân sách' },
     { id: 'forecast', name: 'Dòng tiền dự kiến' },
+    { id: 'loans',    name: 'Dư nợ phải trả' },
   ];
   const MONEY_FMT = '#,##0';
   const xm = v => ({ t: 'n', v: Math.round(v || 0), z: MONEY_FMT });
@@ -1050,6 +1132,22 @@
       }
       add('forecast', xSheet(rows, [16, 18, 36, 16, 14, 40, 16]));
     }
+    if (sheetIds.includes('loans')) {
+      const rows = [['Khoản nợ', 'Tính từ ngày', 'Dư nợ ban đầu (₫)', 'Đã trả gốc (₫)', 'Lãi đã trả (₫)', 'Còn phải trả (₫)', '% đã trả', 'Ghi chú']];
+      const list = loanList();
+      if (!list.length) rows.push(['Chưa có khoản nợ nào.']);
+      list.forEach(l => {
+        const i = loanInfo(l, toKey), row = rows.length + 1;
+        rows.push([loanName(l), l.date ? xdate(l.date) : '', xm(i.principal), xm(i.paid), xm(i.interest),
+          { t: 'n', v: i.remaining, f: `MAX(0,C${row}-D${row})`, z: MONEY_FMT }, { t: 'n', v: i.principal ? i.paid / i.principal : 0, f: `IF(C${row}=0,0,D${row}/C${row})`, z: '0.0%' }, l.note || '']);
+      });
+      if (list.length) {
+        const last = rows.length, t = loansTotal(toKey), n = last + 1;
+        rows.push(['TỔNG CỘNG', '', xsum('C', 2, last, t.principal), xsum('D', 2, last, t.paid), xsum('E', 2, last, t.interest), xsum('F', 2, last, t.remaining),
+          { t: 'n', v: t.principal ? t.paid / t.principal : 0, f: `IF(C${n}=0,0,D${n}/C${n})`, z: '0.0%' }, '']);
+      }
+      add('loans', xSheet(rows, [34, 14, 18, 18, 16, 18, 10, 36]));
+    }
     return wb;
   }
   async function exportExcel(fromKey, toKey, sheetIds) {
@@ -1118,13 +1216,16 @@
   }
 
   // ---------------- MODAL GIAO DỊCH ----------------
-  let editingId = null, mType = 'expense', mCat = null, mDir = 'in';
+  let editingId = null, mType = 'expense', mCat = null, mDir = 'in', mLoan = '';
   const QUICK = [20000, 50000, 100000, 200000, 500000, 1000000, 5000000];
   function openModal(tx) {
     editingId = tx ? tx.id : null;
     mType = tx ? tx.type : 'expense';
     mCat = tx ? tx.cat : null;
     mDir = tx && tx.dir === 'out' ? 'out' : 'in';
+    // Khoản trả nợ mới: nếu chỉ có một khoản nợ còn dư thì chọn sẵn
+    const open = loanList().filter(l => loanInfo(l).remaining > 0);
+    mLoan = tx ? (tx.loan || '') : (open.length === 1 ? open[0].id : '');
     $('#txModalTitle').textContent = tx ? 'Sửa giao dịch' : 'Thêm giao dịch';
     $('#txAmount').value = tx ? nf.format(tx.amount) : '';
     $('#txDate').value = tx ? tx.date : keyOf(today());
@@ -1144,6 +1245,14 @@
     $('#catGrid').innerHTML = cats.map(c => `<button type="button" class="cat-btn ${c.id === mCat ? 'active' : ''}" data-cat="${c.id}" title="${esc(catNote(c) || c.name)}"><span class="e">${c.icon}</span>${esc(c.name)}</button>`).join('');
     const sel = catOf(mCat);
     $('#catHint').textContent = catNote(sel) ? `📝 ${sel.name}: ${catNote(sel)}` : '';
+    const showLoan = mType === 'repay' && loanList().length > 0;
+    $('#loanField').classList.toggle('hidden', !showLoan);
+    if (showLoan) {
+      $('#txLoan').innerHTML = '<option value="">Không trừ vào khoản nợ nào</option>' +
+        loanList().map(l => `<option value="${l.id}">${esc(loanName(l))} · còn ${money(loanInfo(l).remaining)}</option>`).join('');
+      $('#txLoan').value = mLoan && state.loans[mLoan] ? mLoan : '';
+      $('#loanHint').textContent = mCat === 'tr_laivay' ? 'Lãi vay được ghi nhận riêng, không trừ vào dư nợ gốc.' : 'Số tiền này sẽ được trừ vào dư nợ của khoản đã chọn.';
+    }
   }
   function saveTx(e) {
     e.preventDefault();
@@ -1153,9 +1262,10 @@
     if (!date) { toast('Vui lòng chọn ngày'); return; }
     const data = { type: mType, cat: mCat, amount, date, note: $('#txNote').value.trim() };
     if (mType === 'invest') data.dir = mDir;
+    if (mType === 'repay' && mLoan && state.loans[mLoan]) data.loan = mLoan;
     if (editingId) {
       const t = state.transactions.find(x => x.id === editingId);
-      delete t.dir;
+      delete t.dir; delete t.loan;
       Object.assign(t, data);
       toast('✅ Đã cập nhật giao dịch');
     } else {
@@ -1164,6 +1274,7 @@
     }
     save(); closeModal(); renderCurrent();
     if (mType === 'expense') checkBudgetAfterSave(data);
+    if (data.loan) { const l = { id: data.loan, ...state.loans[data.loan] }; setTimeout(() => toast(`🏦 Dư nợ "${loanName(l)}" còn ${money(loanInfo(l).remaining)}`), 2400); }
   }
   function checkBudgetAfterSave(t) {
     const limit = state.budgets[t.cat];
@@ -1229,6 +1340,7 @@
     });
     $('#typeToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mType = b.dataset.type; renderModalType(); } });
     $('#dirToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mDir = b.dataset.dir; renderModalType(); } });
+    $('#txLoan').addEventListener('change', e => { mLoan = e.target.value; });
     $('#catGrid').addEventListener('click', e => { const b = e.target.closest('.cat-btn'); if (b) { mCat = b.dataset.cat; renderModalType(); } });
     $('#txAmount').addEventListener('input', e => { const v = parseAmount(e.target.value); e.target.value = v ? nf.format(v) : ''; });
     $('#quickAmounts').innerHTML = QUICK.map(v => `<button type="button" data-q="${v}">${shortMoney(v)}</button>`).join('');
@@ -1272,7 +1384,7 @@
       try { localStorage.setItem(THEME_KEY, themePref); } catch (e) { /* bỏ qua */ }
       applyTheme(); renderCurrent();
     });
-    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast, debts: state.debts }, null, 2), 'application/json'));
+    $('#exportJson').addEventListener('click', () => download(`so-thu-chi-backup-${keyOf(today())}.json`, JSON.stringify({ transactions: state.transactions, budgets: state.budgets, catNotes: state.catNotes, forecast: state.forecast, debts: state.debts, loans: state.loans }, null, 2), 'application/json'));
     $('#xSheets').innerHTML = XL_SHEETS.map(x => `<label class="x-check"><input type="checkbox" id="x-sheet-${x.id}" value="${x.id}" checked /> ${x.name}</label>`).join('');
     ['#xRange', '#xFrom', '#xTo'].forEach(id => $(id).addEventListener('change', xSummary));
     $('#exportXlsx').addEventListener('click', () => {
@@ -1291,12 +1403,17 @@
           const d = JSON.parse(reader.result);
           if (!Array.isArray(d.transactions)) throw new Error();
           const valid = d.transactions.map(t => (t ? migrateTx(t) : t)).filter(t => t && CATS_BY_TYPE[t.type] && CATS_BY_TYPE[t.type].some(c => c.id === t.cat) && /^\d{4}-\d{2}-\d{2}$/.test(t.date) && Number(t.amount) > 0)
-            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}) }));
+            .map(t => ({ id: String(t.id || uid()), type: t.type, cat: t.cat, amount: Number(t.amount), date: t.date, note: String(t.note || '').slice(0, 120), createdAt: Number(t.createdAt) || Date.now(), ...(t.type === 'invest' ? { dir: t.dir === 'out' ? 'out' : 'in' } : {}), ...(t.type === 'repay' && typeof t.loan === 'string' ? { loan: t.loan } : {}) }));
           e.target.value = '';
           if (!await askConfirm(`Khôi phục ${valid.length} giao dịch? Dữ liệu hiện tại sẽ bị thay thế.`, 'Khôi phục')) return;
           state.transactions = valid;
           state.budgets = d.budgets && typeof d.budgets === 'object' ? Object.fromEntries(Object.entries(d.budgets).filter(([k, v]) => CAT_MAP[k] && Number(v) > 0).map(([k, v]) => [k, Number(v)])) : {};
           if (d.catNotes && typeof d.catNotes === 'object') state.catNotes = Object.fromEntries(Object.entries(d.catNotes).filter(([k, v]) => CAT_MAP[k] && typeof v === 'string').map(([k, v]) => [k, v.slice(0, 200)]));
+          state.loans = {};
+          if (d.loans && typeof d.loans === 'object') for (const [id, l] of Object.entries(d.loans)) {
+            if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || !l || typeof l !== 'object') continue;
+            state.loans[id] = { name: String(l.name || '').slice(0, 60), amount: Number(l.amount) > 0 ? Number(l.amount) : 0, date: /^\d{4}-\d{2}-\d{2}$/.test(l.date) ? l.date : '', note: String(l.note || '').slice(0, 120), createdAt: Number(l.createdAt) || Date.now() };
+          }
           state.forecast = {};
           if (d.forecast && typeof d.forecast === 'object') for (const [k, f] of Object.entries(d.forecast)) {
             if (!/^\d{4}-\d{2}$/.test(k) || !f || typeof f !== 'object') continue;
@@ -1335,7 +1452,7 @@
     $('#view-settings').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('cat-note-input')) e.target.blur(); });
     $('#clearAll').addEventListener('click', async () => {
       if (!await askConfirm('Xóa TOÀN BỘ giao dịch và ngân sách? Hành động này không thể hoàn tác.', 'Xóa hết')) return;
-      state.transactions = []; state.budgets = {}; state.forecast = {}; state.debts = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
+      state.transactions = []; state.budgets = {}; state.forecast = {}; state.debts = {}; state.loans = {}; save(); renderCurrent(); toast('🗑️ Đã xóa toàn bộ dữ liệu');
     });
 
     let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(renderCurrent, 250); });

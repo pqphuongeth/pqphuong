@@ -64,6 +64,7 @@ def line_name(k, l): return l.get('label') or FC_NAMES.get(k) or k
 def load(folder):
     folder = pathlib.Path(folder)
     tx, forecast, debts, budgets, notes = [], {}, {}, {}, {}
+    global LOANS; LOANS = {}
     for f in sorted(folder.glob('*.json')):
         body = json.loads(f.read_text(encoding='utf-8'))
         body = body.get('data', body) if isinstance(body, dict) and 'data' in body and 'id' in body else body
@@ -76,9 +77,29 @@ def load(folder):
                 if l and l.get('amount') and k not in debts: debts[k] = l
         elif f.stem == 'debts':
             debts.update({k: v for k, v in body.items() if isinstance(v, dict)})
+        elif f.stem == 'loans':
+            LOANS.update({k: v for k, v in body.items() if isinstance(v, dict)})
         elif f.stem == 'meta':
             budgets, notes = body.get('budgets') or {}, body.get('catNotes') or {}
     return tx, forecast, debts, budgets, notes
+
+
+LOANS = {}   # khoản vay (tài liệu `loans`): {id: {name, amount (dư nợ ban đầu), date (tính từ ngày), note}}
+
+
+def loans_status(tx, upto):
+    """Dư nợ từng khoản: trả nợ gắn khoản vay (t.loan) trừ vào nợ gốc, trừ 'tr_laivay' (lãi)."""
+    out = []
+    for lid, l in sorted(LOANS.items(), key=lambda kv: kv[1].get('createdAt', 0)):
+        paid = interest = 0
+        for t in tx:
+            if t['type'] != 'repay' or t.get('loan') != lid or t['date'] > upto or (l.get('date') and t['date'] < l['date']): continue
+            if t['cat'] == 'tr_laivay': interest += t['amount']
+            else: paid += t['amount']
+        principal = l.get('amount') or 0
+        out.append(dict(id=lid, name=l.get('name') or 'Khoản nợ chưa đặt tên', principal=principal, paid=paid,
+                        interest=interest, remaining=max(principal - paid, 0), date=l.get('date'), note=l.get('note') or ''))
+    return out
 
 
 def flows(tx, a, b):
@@ -181,6 +202,11 @@ def text_day(tx, forecast, debts, budgets, day):
         for t in sorted(rep, key=lambda t: -t['amount']): L.append(f"  • {cat_name(t['cat'])}: {vnd(t['amount'])}{note(t)}")
     if not r['count']: L.append("Hôm nay chưa ghi khoản thu chi nào. Nhớ ghi bổ sung trong app.")
     L.append(f"💵 Tiền mặt hiện có: {vnd(pos['cash'])}")
+    ls = [x for x in loans_status(tx, s) if x['principal']]
+    if ls:
+        L.append(f"🏦 Dư nợ còn phải trả: {vnd(sum(x['remaining'] for x in ls))}")
+        for x in ls:
+            if any(t.get('loan') == x['id'] for t in rep): L.append(f"  • {x['name']}: còn {vnd(x['remaining'])}")
     L.append(f"📅 Tháng {day.month}: thu {tr(m['income'])} · chi {tr(m['expense'])} · TB {tr(m['expense'] / day.day)}/ngày")
     due = [(k, l, 'nhận') for f in forecast.values() for k, l in (f.get('in') or {}).items()] + \
           [(k, l, 'chi') for f in forecast.values() for k, l in (f.get('out') or {}).items()]
@@ -208,6 +234,10 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
     L.append(f"💰 Tổng tài sản {vnd(pos['assets'])} · tiền mặt {vnd(pos['cash'])}")
     open_debt = sum(l['amount'] for l in debts.values() if l.get('amount') and not l.get('done'))
     if open_debt: L.append(f"🧾 Công nợ chưa thu: {vnd(open_debt)}")
+    ls = [x for x in loans_status(tx, b.isoformat()) if x['principal']]
+    if ls:
+        rem = sum(x['remaining'] for x in ls)
+        L.append(f"🏦 Dư nợ phải trả: {vnd(rem)} (đã trả gốc {tr(sum(x['paid'] for x in ls))}) · tài sản ròng {vnd(pos['assets'] - rem)}")
     # Khoản sắp tới hạn: 14 ngày tới (báo cáo tuần) hoặc tới cuối tháng (báo cáo tháng)
     horizon = 14 if mode == 'week' else ((b.replace(day=28) + datetime.timedelta(days=4)).replace(day=1) - b).days - 1
     nxt = (b + datetime.timedelta(days=horizon)).isoformat()
@@ -293,6 +323,18 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
       <tfoot><tr><td colspan="3">Tổng công nợ chưa thu</td><td class="r num inv">{num(open_debt)}</td><td></td></tr></tfoot>
     </table></div></div>
   </section>"""
+    ls = [x for x in loans_status(tx, B) if x['principal']]
+    rem = sum(x['remaining'] for x in ls)
+    sec_loan = '' if not ls else f"""
+  <section>
+    <h2>Dư nợ phải trả</h2>
+    <p class="section-note">Trả nợ gắn với khoản vay được trừ dần vào dư nợ; lãi vay không trừ vào nợ gốc. Tài sản ròng = tổng tài sản − dư nợ = <b class="num">{vnd(pos['assets'] - rem)}</b>.</p>
+    <div class="sheet"><div class="table-wrap"><table>
+      <thead><tr><th>Khoản nợ</th><th>Tính từ</th><th class="r">Dư nợ ban đầu</th><th class="r">Đã trả gốc</th><th class="r">Lãi đã trả</th><th class="r">Còn phải trả</th></tr></thead>
+      <tbody>{''.join(f'<tr><td>{e(x["name"])}<br><small class="muted">{e(x["note"])}</small></td><td class="num">{dmy(x["date"]) if x["date"] else "—"}</td><td class="r num">{num(x["principal"])}</td><td class="r num pos">{num(x["paid"])}</td><td class="r num">{num(x["interest"])}</td><td class="r num neg">{num(x["remaining"])}</td></tr>' for x in ls)}</tbody>
+      <tfoot><tr><td colspan="5">Tổng dư nợ phải trả</td><td class="r num neg">{num(rem)}</td></tr></tfoot>
+    </table></div></div>
+  </section>"""
     sec_issue = '' if not issues else '<section><h2>Cần xem lại trong app</h2><div class="sheet"><ol class="todo">' + \
         ''.join(f'<li>{e(i)}</li>' for i in issues) + '</ol></div></section>'
 
@@ -329,7 +371,7 @@ def page(mode, tx, forecast, debts, budgets, notes, day, css):
       </tbody><tfoot><tr><td>Tiền mặt tăng / giảm</td><td class="r num">{num(r['cash'])}</td></tr></tfoot></table></div></div>
       <div style="display:flex;flex-direction:column;gap:10px;min-width:0"><h3>Chi tiêu theo hạng mục</h3><div class="bars">{bars}</div></div>
     </div></div>
-  </section>{sec_fc}{sec_debt}
+  </section>{sec_fc}{sec_debt}{sec_loan}
   {'' if not port else f'<section><h2>Danh mục đầu tư</h2><div class="sheet"><div class="table-wrap"><table style="min-width:0"><thead><tr><th>Danh mục</th><th class="r">Đang đầu tư (₫)</th><th class="r">Tỷ trọng</th></tr></thead><tbody>{port}</tbody></table></div></div></section>'}
   <section>
     <h2>Giao dịch trong {label}</h2>

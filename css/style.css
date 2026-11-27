@@ -335,6 +335,13 @@ h3 { font-size: 1.02rem; font-weight: 700; }
 .fc-db-month { display: flex; flex-direction: column; gap: 6px; padding-block: 8px; }
 .fc-db-month + .fc-db-month { border-top: 1px solid var(--border); padding-top: 14px; }
 .fc-db-head { display: flex; justify-content: space-between; align-items: center; }
+.loan-sum { display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 2px solid var(--border); }
+.loan-progress { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: .84rem; color: var(--muted); }
+.loan-progress .bar { flex-basis: 100%; }
+.loan-progress b { color: var(--text); font-variant-numeric: tabular-nums; }
+.loan-left b { color: var(--repay); }
+.loan-del { color: var(--expense); }
+.tag.repay { background: var(--repay-soft); color: var(--repay); }
 .fc-db-debt { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .fc-db-debt b { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .fc-db-empty { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--muted); }

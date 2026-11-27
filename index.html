@@ -230,6 +230,15 @@
         </div>
 
         <div class="card">
+          <div class="card-head">
+            <div><h3 class="repay-text">🏦 Dư nợ phải trả</h3><div class="muted small">Nhập dư nợ hiện tại của từng khoản vay. Mỗi khoản Trả nợ gắn với khoản vay sẽ được trừ dần vào dư nợ; lãi vay không trừ vào nợ gốc.</div></div>
+            <button type="button" class="btn btn-ghost btn-sm" id="loanAdd">＋ Thêm khoản nợ</button>
+          </div>
+          <div class="loan-sum" id="loanSum"></div>
+          <div class="fc-list" id="loanList"></div>
+        </div>
+
+        <div class="card">
           <div class="card-head"><h3 class="expense-text">📤 Các khoản chi ra dự kiến</h3></div>
           <div class="fc-list" id="fcList-out"></div>
           <div class="fc-total" id="fcTotal-out"></div>
@@ -359,6 +368,11 @@
         <div class="cat-grid" id="catGrid"></div>
         <div class="cat-hint" id="catHint"></div>
       </div>
+      <label class="field hidden" id="loanField">
+        <span>Trừ vào khoản nợ</span>
+        <select id="txLoan" class="input"></select>
+        <small class="muted" id="loanHint"></small>
+      </label>
       <div class="field-row">
         <label class="field">
           <span>Ngày</span>
