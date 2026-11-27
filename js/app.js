@@ -824,7 +824,9 @@
     if (!(l.amount > 0)) { toast('Nhập số tiền trước khi ghi vào sổ'); return; }
     // Ghi sổ là xác nhận tiền đã nhận / đã chi: ngày hẹn còn ở tương lai thì ghi theo hôm nay
     const date = l.date && l.date <= keyOf(today()) ? l.date : keyOf(today());
-    const loans = def.type === 'repay' ? loanList().filter(x => loanInfo(x).remaining > 0) : [];
+    let loans = def.type === 'repay' ? loanList().filter(x => loanInfo(x).remaining > 0) : [];
+    // Nhiều khoản nợ: dòng "Trả ngân hàng" ưu tiên khoản có tên chứa "ngân hàng"
+    if (loans.length > 1 && def.k === 'nganhang') { const bank = loans.filter(x => /ngân hàng|ngan hang|bank/i.test(x.name || '')); if (bank.length === 1) loans = bank; }
     const loanTxt = def.type !== 'repay' ? '' : loans.length === 1 ? ` Trừ vào khoản nợ "${loanName(loans[0])}".`
       : loans.length > 1 ? ' Chưa gắn với khoản nợ nào: sửa giao dịch trong Sổ giao dịch để chọn khoản nợ cần trừ.' : '';
     if (!await askConfirm(`Ghi "${fcName(def, l)}" ${money(l.amount)} vào sổ giao dịch (${c.name}, ngày ${dmy(parseKey(date))})?${loanTxt}`, 'Ghi vào sổ')) return;
