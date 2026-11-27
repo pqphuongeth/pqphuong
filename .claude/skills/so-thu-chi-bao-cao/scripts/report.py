@@ -301,152 +301,214 @@ def text_period(mode, tx, forecast, debts, budgets, day, url=None):
 
 
 # ---------------- Trang báo cáo (HTML) ----------------
+# Bố cục theo trình tự đọc của một báo cáo tài chính: điểm chính → số liệu chính → dòng tiền → chi tiêu
+# → tài sản và nợ → hoa hồng → việc cần làm → phụ lục giao dịch. Số tiền trong bảng không kèm "₫" (đơn vị ghi ở đầu trang).
 def page(mode, tx, forecast, debts, budgets, notes, day, css):
     a, b, pa, pb = period(mode, day); A, B = a.isoformat(), b.isoformat()
     r = flows(tx, A, B); p = flows(tx, pa.isoformat(), pb.isoformat()); pos = position(tx, B)
-    label = {'day': 'ngày', 'week': 'tuần', 'month': 'tháng'}[mode]
-    heading = {'day': f"Ngày {dmy(b)}", 'week': f"Tuần {dm(a)} – {dmy(b)}", 'month': f"Tháng {b.month}/{b.year}"}[mode]
+    start_cash = position(tx, (a - datetime.timedelta(days=1)).isoformat())['cash']
+    heading = {'day': f"Thu chi ngày {dmy(b)}", 'week': f"Báo cáo tài chính tuần {dm(a)} – {dmy(b)}",
+               'month': f"Báo cáo tài chính tháng {b.month}/{b.year}"}[mode]
     days = (b - a).days + 1
-    open_debts = [(k, l) for k, l in debts.items() if l.get('amount') and not l.get('done')]
-    open_debt = sum(l['amount'] for _, l in open_debts)
-    mk = b.strftime('%Y-%m'); fc = forecast.get(mk, {})
-    ins = sorted(((k, l) for k, l in (fc.get('in') or {}).items() if l.get('amount')), key=lambda kv: -kv[1]['amount'])
-    outs = [(k, l) for k, l in (fc.get('out') or {}).items() if l.get('amount')]
-    pin = sum(l['amount'] for _, l in ins if not l.get('done')); pout = sum(l['amount'] for _, l in outs if not l.get('done'))
-    proj = pos['cash'] + pin - pout; need = max(pout - pos['cash'], 0)
+    cs = comm_status(tx, B); ls = [x for x in loans_status(tx, B) if x['principal']]
+    debt = sum(x['remaining'] for x in ls); due = sum(x['due_left'] for x in cs); comm_left = sum(x['remaining'] for x in cs)
+    net = pos['assets'] - debt
     issues = checks(tx, forecast, debts, budgets, day, a)
+    save_rate = r['saving'] / r['income'] if r['income'] else None
 
-    def kpi(lbl, val, sub, cls=''): return f'<div class="kpi"><span class="label">{lbl}</span><span class="value {cls}">{val}</span><span class="sub">{sub}</span></div>'
-    def delta(cur, prev, good_up):
-        if not prev: return f'chưa có dữ liệu {label} trước'
-        up = cur >= prev; ok = up == good_up
-        return f'<span class="{"pos" if ok else "neg"}">{"▲" if up else "▼"} {abs(cur - prev) / prev * 100:.1f}% so với {label} trước</span>'
-    bars = ''.join(
-        f'<div class="bar-row"><span class="name">{e(cat_name(c))}<small>{pct(v / r["expense"])}{(" · " + e(notes[c])) if notes.get(c) else ""}</small></span>'
-        f'<span class="amt num">{vnd(v)}</span><div class="track"><i style="width:{v / r["expense"] * 100:.1f}%"></i></div></div>'
-        for c, v in sorted(r['by_exp'].items(), key=lambda kv: -kv[1])) if r['expense'] else '<p class="muted">Chưa có khoản chi.</p>'
+    def kpi(lbl, val, sub='', cls=''):
+        return f'<div class="kpi {cls}"><span class="k-label">{lbl}</span><span class="k-value num">{val}</span><span class="k-sub">{sub}</span></div>'
 
-    def tx_row(t):
-        if t['type'] == 'income': kind, cls, sg = ('Vốn có sẵn', 'muted', '+') if t['cat'] in CAPITAL else ('Thu nhập', 'pos', '+')
-        elif t['type'] == 'expense': kind, cls, sg = 'Chi tiêu', 'neg', '−'
-        elif t['type'] == 'repay': kind, cls, sg = 'Trả nợ', 'muted', '−'
-        else: kind, cls, sg = ('Đầu tư · rút vốn', 'inv', '+') if t.get('dir') == 'out' else ('Đầu tư · rót vốn', 'inv', '−')
-        return (f'<tr><td class="num">{dmy(t["date"])}</td><td>{kind}</td><td>{e(cat_name(t["cat"]))}</td>'
-                f'<td class="muted">{e(t.get("note") or "")}</td><td class="r num {cls}">{sg}{num(t["amount"])}</td></tr>')
+    def cmp(cur, prev, good_up):
+        if not prev: return f'kỳ trước ({dm(pa)}–{dm(pb)}) chưa có dữ liệu'
+        up = cur >= prev
+        return f'<span class="{"pos" if up == good_up else "neg"}">{"▲" if up else "▼"} {abs(cur - prev) / prev * 100:.0f}%</span> so với {dm(pa)}–{dm(pb)}'
 
-    def fc_rows(items, word):
-        return ''.join(f'<tr><td>{e(line_name(k, l))}</td><td class="muted">{e(l.get("note") or "")}</td>'
-                       f'<td class="num">{dmy(l["date"]) if l.get("date") else "—"}</td><td class="r num">{num(l["amount"])}</td>'
-                       f'<td><span class="pill {"done" if l.get("done") else "wait"}">{("Đã " if l.get("done") else "Chưa ") + word}</span></td></tr>'
-                       for k, l in items)
+    def bar(v, tot, cls=''):
+        w = max(min(v / tot * 100, 100), 0) if tot else 0
+        return f'<span class="bar {cls}"><i style="width:{w:.1f}%"></i></span>'
 
-    port = ''.join(f'<tr><td>{e(cat_name(c))}</td><td class="r num">{num(v)}</td><td class="r">{pct(v / pos["invest"]) if pos["invest"] else ""}</td></tr>'
-                   for c, v in sorted(pos['port'].items(), key=lambda kv: -kv[1]))
-    lede = (f'Tổng tài sản đang nắm giữ đến {dmy(b)} là <b>{vnd(pos["assets"])}</b>, gồm {vnd(pos["cash"])} tiền mặt và {vnd(pos["invest"])} đang đầu tư.'
-            + (f' Còn <b>{vnd(open_debt)}</b> công nợ chưa thu.' if open_debt else '')
-            + f' Trong {label} này: thu nhập {vnd(r["income"])}, chi tiêu {vnd(r["expense"])}'
-            + (f', trả nợ {vnd(r["repay"])}' if r['repay'] else '')
-            + (f', tiết kiệm {pct(r["saving"] / r["income"])} thu nhập.' if r['income'] else '.')
-            + (f' Kế hoạch tháng {b.month} còn phải chi {vnd(pout)}, cần ít nhất <b>{vnd(need)}</b> tiền về trước hạn.' if need else ''))
+    def dash(v): return num(v) if v else '<span class="muted">–</span>'
 
-    sec_fc = '' if not (ins or outs) else f"""
-  <section>
-    <h2>Dòng tiền tới hạn tháng {b.month}/{b.year}</h2>
-    <div class="kpis">{kpi('Còn chờ nhận', vnd(pin), f'{len(ins)} khoản', 'pos')}{kpi('Còn phải chi', vnd(pout), f'{len(outs)} khoản', 'neg')}{kpi('Chênh lệch', vnd(pin - pout), 'chờ nhận − phải chi', 'pos' if pin >= pout else 'neg')}{kpi('Tiền mặt sau thu/chi', vnd(proj), 'nếu đúng hạn')}</div>
-    <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Khoản</th><th>Ghi chú</th><th>Hạn</th><th class="r">Số tiền (₫)</th><th>Trạng thái</th></tr></thead>
-      <tbody><tr><td colspan="5"><b class="pos">Tới hạn nhận</b></td></tr>{fc_rows(ins, 'nhận')}<tr><td colspan="5"><b class="neg">Phải chi</b></td></tr>{fc_rows(outs, 'chi')}</tbody>
-    </table></div></div>
-  </section>"""
-    sec_debt = '' if not open_debts else f"""
-  <section>
-    <h2>Công nợ phải thu</h2>
-    <p class="section-note">Tiền người khác còn nợ, chưa thu được; chưa tính vào tiền mặt và tài sản.</p>
-    <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Khoản</th><th>Ghi chú</th><th>Hẹn trả</th><th class="r">Số tiền (₫)</th><th>Trạng thái</th></tr></thead>
-      <tbody>{fc_rows(open_debts, 'thu')}</tbody>
-      <tfoot><tr><td colspan="3">Tổng công nợ chưa thu</td><td class="r num inv">{num(open_debt)}</td><td></td></tr></tfoot>
-    </table></div></div>
-  </section>"""
-    ls = [x for x in loans_status(tx, B) if x['principal']]
-    rem = sum(x['remaining'] for x in ls)
-    sec_loan = '' if not ls else f"""
-  <section>
-    <h2>Dư nợ phải trả</h2>
-    <p class="section-note">Trả nợ gắn với khoản vay được trừ dần vào dư nợ; lãi vay không trừ vào nợ gốc. Tài sản ròng = tổng tài sản − dư nợ = <b class="num">{vnd(pos['assets'] - rem)}</b>.</p>
-    <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Khoản nợ</th><th>Ghi nhận</th><th class="r">Dư nợ ban đầu</th><th class="r">Đã trả gốc</th><th class="r">Lãi đã trả</th><th class="r">Còn phải trả</th></tr></thead>
-      <tbody>{''.join(f'<tr><td>{e(x["name"])}<br><small class="muted">{e(x["note"])}</small></td><td class="num">{dmy(x["date"]) if x["date"] else "—"}</td><td class="r num">{num(x["principal"])}</td><td class="r num pos">{num(x["paid"])}</td><td class="r num">{num(x["interest"])}</td><td class="r num neg">{num(x["remaining"])}</td></tr>' for x in ls)}</tbody>
-      <tfoot><tr><td colspan="5">Tổng dư nợ phải trả</td><td class="r num neg">{num(rem)}</td></tr></tfoot>
-    </table></div></div>
-  </section>"""
-    cs = comm_status(tx, B)
-    sec_comm = ''
+    # ---- Điểm chính: mỗi ý là một kết luận ----
+    pts = []
+    if r['income'] or r['expense']:
+        top = max(r['by_exp'], key=r['by_exp'].get) if r['by_exp'] else None
+        pts.append(f"Thu nhập <b>{vnd(r['income'])}</b>, chi tiêu <b>{vnd(r['expense'])}</b>"
+                   + (f", giữ lại được <b>{pct(save_rate)}</b> thu nhập." if save_rate is not None else '.')
+                   + (f" Khoản chi lớn nhất là {e(cat_name(top))} ({vnd(r['by_exp'][top])})." if top else ''))
+    moves = []
+    if r['repay']: moves.append(f"trả nợ {vnd(r['repay'])}")
+    if r['invest'] > 0: moves.append(f"rót đầu tư ròng {vnd(r['invest'])}")
+    if r['invest'] < 0: moves.append(f"rút đầu tư ròng {vnd(-r['invest'])}")
+    pts.append(f"Tiền mặt cuối kỳ còn <b>{vnd(pos['cash'])}</b> (đầu kỳ {vnd(start_cash)})"
+               + (f"; ngoài chi tiêu, tiền đã dùng để {' và '.join(moves)}." if moves else '.'))
+    dues = sorted([x for x in cs if x['due_left']], key=lambda x: -x['due_left'])
     if cs:
-        rows = ''
-        for g, gname in COMM_GROUPS.items():
-            items = [x for x in cs if x['group'] == g]
-            if not items: continue
-            rows += f'<tr><td colspan="6"><b class="pos">{e(gname)}</b> · còn {num(sum(x["remaining"] for x in items))}</td></tr>' + ''.join(
-                f'<tr><td>{e(x["code"])}<br><small class="muted">{("Dự kiến nhận " + dmy(COMMS[x["id"]]["expected"])) if COMMS.get(x["id"], {}).get("expected") else ""}</small></td><td class="muted">{e(x["batch"])}</td><td class="r num">{num(x["total"])}</td><td class="r num">{num(x["received"])}</td><td class="r num pos">{(num(x["due_left"]) + f'<br><small class="muted">KH {x["paid_pct"]}% → HH {x["pct"]}%</small>') if x["reached"] else "—"}</td><td class="r num pos">{num(x["remaining"])}</td></tr>' for x in items)
-        sec_comm = f"""
-  <section>
-    <h2>Hoa hồng chưa nhận</h2>
-    <p class="section-note">Chưa tính vào thu nhập và tiền mặt cho tới khi nhận. “Tới hạn chưa nhận” tính theo mốc khách hàng đã thanh toán được tích trong app (Đợt 1: KH 30/50/70% → HH 50/90/100%; Đợt 2: KH 15/25/45/70% → HH 50/70/95/100%).</p>
-    <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Mã căn / Nội dung</th><th>Đợt</th><th class="r">Tổng hoa hồng</th><th class="r">Đã nhận</th><th class="r">Tới hạn chưa nhận</th><th class="r">Còn chưa nhận</th></tr></thead>
-      <tbody>{rows}</tbody>
-      <tfoot><tr><td colspan="4">Tổng</td><td class="r num pos">{num(sum(x['due_left'] for x in cs))}</td><td class="r num pos">{num(sum(x['remaining'] for x in cs))}</td></tr></tfoot>
-    </table></div></div>
-  </section>"""
-    sec_issue = '' if not issues else '<section><h2>Cần xem lại trong app</h2><div class="sheet"><ol class="todo">' + \
-        ''.join(f'<li>{e(i)}</li>' for i in issues) + '</ol></div></section>'
+        pts.append(f"Hoa hồng <b>đã tới hạn nhưng chưa nhận: {vnd(due)}</b> ở {len(dues)} căn/khoản"
+                   + (f" (lớn nhất: {', '.join(e(x['code']) for x in dues[:3])})" if dues else '')
+                   + f". Tổng hoa hồng còn chưa nhận {vnd(comm_left)}.")
+    if ls:
+        pts.append(f"Dư nợ còn <b>{vnd(debt)}</b>; tài sản ròng hiện tại {vnd(net)}"
+                   + (f", sẽ thành <b>{vnd(net + due)}</b> khi thu đủ hoa hồng đã tới hạn." if due else '.'))
+    if issues: pts.append(f"Có {len(issues)} điểm cần xem lại trong dữ liệu (mục 5).")
 
-    # Tiêu đề cố định theo loại báo cáo: trang tuần được cập nhật tại cùng một link mỗi tuần
+    # ---- 1. Dòng tiền: tiền mặt đầu kỳ → cuối kỳ ----
+    flow_rows = [('Tiền mặt đầu kỳ', start_cash, 'base', ''),
+                 ('Thu nhập', r['income'], 'pos', '+'), ('Vốn có sẵn đưa vào sổ', r['capital'], 'pos', '+'),
+                 ('Rút vốn đầu tư', r['inv_out'], 'inv', '+'), ('Chi tiêu', r['expense'], 'neg', '−'),
+                 ('Trả nợ', r['repay'], 'rep', '−'), ('Rót vốn đầu tư', r['inv_in'], 'inv', '−')]
+    big = max([abs(v) for _, v, _, _ in flow_rows] + [abs(pos['cash']), 1])
+    flow_html = ''.join(f'<tr><td>{n}</td><td class="r num {c}">{s}{num(v)}</td><td class="w-bar">{bar(v, big, c)}</td></tr>'
+                        for n, v, c, s in flow_rows if v or c == 'base')
+    inc_rows = ''.join(f'<tr><td>{e(cat_name(c))}</td><td class="r num">{num(v)}</td><td class="r muted">{pct(v / r["income"])}</td></tr>'
+                       for c, v in sorted(r['by_inc'].items(), key=lambda kv: -kv[1])) or '<tr><td colspan="3" class="muted">Chưa có thu nhập.</td></tr>'
+    rep_rows = ''.join(f'<tr><td>{e(cat_name(c))}</td><td class="r num">{num(v)}</td><td></td></tr>'
+                       for c, v in sorted(r['by_rep'].items(), key=lambda kv: -kv[1]))
+    rep_block = (f'<h3 class="mt">Trả nợ</h3><table class="t"><tbody>{rep_rows}</tbody>'
+                 f'<tfoot><tr><td>Tổng trả nợ</td><td class="r num">{num(r["repay"])}</td><td></td></tr></tfoot></table>') if rep_rows else ''
+
+    # ---- 2. Chi tiêu theo hạng mục ----
+    cnt = {}
+    for t in r['items']:
+        if t['type'] == 'expense': cnt[t['cat']] = cnt.get(t['cat'], 0) + 1
+    exp_sorted = sorted(r['by_exp'].items(), key=lambda kv: -kv[1])
+    has_budget = any(budgets.get(c) for c, _ in exp_sorted)
+    exp_rows = ''.join(
+        f'<tr><td class="muted">{i}</td><td>{e(cat_name(c))}{(" <small class=muted>· " + e(notes[c]) + "</small>") if notes.get(c) else ""}</td>'
+        f'<td class="r muted">{cnt.get(c, 0)}</td><td class="r num">{num(v)}</td><td class="r">{pct(v / r["expense"])}</td>'
+        f'<td class="w-bar">{bar(v, exp_sorted[0][1], "neg")}</td>'
+        + (f'<td class="r muted">{num(budgets[c]) if budgets.get(c) else ""}</td>' if has_budget else '') + '</tr>'
+        for i, (c, v) in enumerate(exp_sorted, 1))
+    top3 = sum(v for _, v in exp_sorted[:3])
+
+    # ---- 3. Tài sản và nợ ----
+    port_rows = ''.join(f'<tr class="sub"><td>{e(cat_name(c))}</td><td class="r num">{num(v)}</td></tr>'
+                        for c, v in sorted(pos['port'].items(), key=lambda kv: -kv[1]))
+    loan_rows = ''.join(f'<tr><td>{e(x["name"])}<small class="muted block">ban đầu {num(x["principal"])} · đã trả gốc {num(x["paid"])}'
+                        f'{(" · lãi " + num(x["interest"])) if x["interest"] else ""}</small>{bar(x["paid"], x["principal"], "pos")}</td>'
+                        f'<td class="r num">{num(x["remaining"])}</td></tr>' for x in ls)
+
+    # ---- 4. Hoa hồng ----
+    sched_txt = {'dot1': 'Đợt 1', 'dot2': 'Đợt 2', 'none': '–'}
+    grp_cards, comm_rows = '', ''
+    for g, gname in COMM_GROUPS.items():
+        items = sorted([x for x in cs if x['group'] == g], key=lambda x: (-x['due_left'], -x['remaining']))
+        if not items: continue
+        T = sum(x['total'] for x in items); R = sum(x['received'] for x in items)
+        Dl = sum(x['due_left'] for x in items); L = sum(x['remaining'] for x in items)
+        w = lambda v: f'{v / T * 100 if T else 0:.1f}%'
+        grp_cards += (f'<div class="gcard"><b>{e(gname)}</b><span class="muted small">{len(items)} căn/khoản · tổng hoa hồng {num(T)}</span>'
+                      f'<span class="stack"><i class="s-got" style="width:{w(R)}"></i><i class="s-due" style="width:{w(Dl)}"></i></span>'
+                      f'<span class="gline"><span><i class="dot s-got"></i>Đã nhận {num(R)}</span><span><i class="dot s-due"></i>Tới hạn {num(Dl)}</span>'
+                      f'<span><i class="dot s-wait"></i>Chưa tới hạn {num(L - Dl)}</span></span></div>')
+        comm_rows += f'<tr class="grp"><td colspan="7">{e(gname)}</td></tr>'
+        for x in items:
+            prog = (f'{x["paid_pct"]}% → {x["pct"]}%' if x['reached']
+                    else 'chưa đạt mốc' if x['sched'] != 'none' else 'không theo mốc')
+            comm_rows += (f'<tr><td><b>{e(x["code"])}</b></td><td class="muted">{sched_txt[x["sched"]]}</td><td class="r num">{num(x["total"])}</td>'
+                          f'<td class="r num">{dash(x["received"])}</td><td class="small muted">{prog}</td>'
+                          f'<td class="r num due">{dash(x["due_left"])}</td><td class="r num">{dash(x["remaining"] - x["due_left"])}</td></tr>')
+    T_all = sum(x['total'] for x in cs); R_all = sum(x['received'] for x in cs)
+
+    # ---- 5. Việc cần làm ----
+    todo = []
+    for x in dues[:5]:
+        todo.append(f'Thu hoa hồng <b>{e(x["code"])}</b>: {vnd(x["due_left"])}'
+                    + (f' (khách đã thanh toán {x["paid_pct"]}%).' if x['reached'] else '.'))
+    if len(dues) > 5: todo.append(f'Thu tiếp {len(dues) - 5} khoản hoa hồng tới hạn còn lại (bảng mục 4).')
+    for x in ls:
+        if x['remaining']: todo.append(f'Lên kế hoạch trả <b>{e(x["name"])}</b>: còn {vnd(x["remaining"])}.')
+    todo += [e(i) for i in issues]
+
+    # ---- Phụ lục: giao dịch nhóm theo loại, có cộng nhóm ----
+    def kind(t):
+        if t['type'] == 'income': return 'Vốn có sẵn' if t['cat'] in CAPITAL else 'Thu nhập'
+        return {'expense': 'Chi tiêu', 'repay': 'Trả nợ', 'invest': 'Đầu tư'}[t['type']]
+    def sign(t): return ('+' if t.get('dir') == 'out' else '−') if t['type'] == 'invest' else ''
+    appx = ''
+    for k in ('Thu nhập', 'Vốn có sẵn', 'Đầu tư', 'Trả nợ', 'Chi tiêu'):
+        its = [t for t in r['items'] if kind(t) == k]
+        if not its: continue
+        tot = sum(-t['amount'] if sign(t) == '+' else t['amount'] for t in its)
+        appx += f'<tr class="grp"><td colspan="3">{k} · {len(its)} khoản{" (rót − rút)" if k == "Đầu tư" else ""}</td><td class="r num">{num(tot)}</td></tr>'
+        appx += ''.join(f'<tr><td class="num">{dm(t["date"])}</td><td>{e(cat_name(t["cat"]))}</td><td class="muted">{e(t.get("note") or "")}</td>'
+                        f'<td class="r num">{sign(t)}{num(t["amount"])}</td></tr>' for t in its)
+
+    def sec(n, t, body, note='', keep=False):
+        return f'<section{" class=keep" if keep else ""}><h2><span class="sn">{n}</span>{t}</h2>{f"<p class=note>{note}</p>" if note else ""}{body}</section>'
+
     title = {'day': 'Thu chi trong ngày', 'week': 'Báo cáo tuần Sổ Thu Chi', 'month': 'Báo cáo tháng Sổ Thu Chi'}[mode]
-    return f"""<title>{title}</title>
+    out = [f"""<title>{title}</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap">
 <style>
 {css}
 </style>
 <div class="wrap">
-  <header class="top">
-    <span class="eyebrow">Sổ Thu Chi · Báo cáo {label}</span>
-    <h1>{e(heading)}</h1>
-    <div class="meta"><span>Số liệu tính đến <b class="num">{dmy(b)}</b></span><span>{r['count']} giao dịch trong {label}</span><span>So sánh với {dm(pa)}–{dmy(pb)}</span></div>
-  </header>
-  <section>
-    <h2>Tóm tắt</h2>
-    <p class="lede">{lede}</p>
-    <div class="kpis">{kpi('Tổng tài sản', vnd(pos['assets']), 'tiền mặt + đang đầu tư')}{kpi('Tiền mặt', vnd(pos['cash']), 'sau thu, chi và đầu tư')}{kpi('Đang đầu tư', vnd(pos['invest']), f"{len(pos['port'])} danh mục", 'inv')}{kpi('Hoa hồng chưa nhận', vnd(sum(x['remaining'] for x in comm_status(tx, B))), f"{sum(1 for x in comm_status(tx, B) if x['remaining'])} căn / khoản", 'pos')}</div>
-  </section>
-  <section>
-    <h2>Thu chi trong {label} ({dm(a)}–{dm(b)})</h2>
-    <div class="kpis">{kpi('Thu nhập', vnd(r['income']), delta(r['income'], p['income'], True), 'pos')}{kpi('Chi tiêu', vnd(r['expense']), delta(r['expense'], p['expense'], False), 'neg')}{kpi('Tiết kiệm', vnd(r['saving']), f"tỷ lệ {pct(r['saving'] / r['income'])}" if r['income'] else '—', 'pos' if r['saving'] >= 0 else 'neg')}{kpi('Chi TB / ngày', vnd(r['expense'] / days), f'{days} ngày')}</div>
-    <div class="sheet"><div class="two">
-      <div style="display:flex;flex-direction:column;gap:10px;min-width:0"><h3>Tiền vào và tiền ra</h3><div class="table-wrap"><table style="min-width:0"><tbody>
-        <tr><td>Thu nhập</td><td class="r num pos">+{num(r['income'])}</td></tr>
-        <tr><td>Vốn có sẵn (không tính thu nhập)</td><td class="r num">+{num(r['capital'])}</td></tr>
-        <tr><td>Chi tiêu</td><td class="r num neg">−{num(r['expense'])}</td></tr>
-        <tr><td>Rót vốn đầu tư</td><td class="r num inv">−{num(r['inv_in'])}</td></tr>
-        <tr><td>Rút vốn đầu tư</td><td class="r num inv">+{num(r['inv_out'])}</td></tr>
-        <tr><td>Trả nợ (không tính chi tiêu)</td><td class="r num">−{num(r['repay'])}</td></tr>
-      </tbody><tfoot><tr><td>Tiền mặt tăng / giảm</td><td class="r num">{num(r['cash'])}</td></tr></tfoot></table></div></div>
-      <div style="display:flex;flex-direction:column;gap:10px;min-width:0"><h3>Chi tiêu theo hạng mục</h3><div class="bars">{bars}</div></div>
-    </div></div>
-  </section>{sec_fc}{sec_comm}{sec_debt}{sec_loan}
-  {'' if not port else f'<section><h2>Danh mục đầu tư</h2><div class="sheet"><div class="table-wrap"><table style="min-width:0"><thead><tr><th>Danh mục</th><th class="r">Đang đầu tư (₫)</th><th class="r">Tỷ trọng</th></tr></thead><tbody>{port}</tbody></table></div></div></section>'}
-  <section>
-    <h2>Giao dịch trong {label}</h2>
-    <div class="sheet"><div class="table-wrap"><table>
-      <thead><tr><th>Ngày</th><th>Loại</th><th>Hạng mục</th><th>Ghi chú</th><th class="r">Số tiền (₫)</th></tr></thead>
-      <tbody>{''.join(tx_row(t) for t in r['items']) or '<tr><td colspan="5" class="muted">Chưa có giao dịch.</td></tr>'}</tbody>
-    </table></div></div>
-  </section>{sec_issue}
-  <footer>Lập từ dữ liệu app Sổ Thu Chi. Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu; tiền mặt = tổng tài sản − phần đang đầu tư; công nợ chưa thu không tính vào tài sản.</footer>
+<header class="top">
+  <div><span class="eyebrow">Sổ Thu Chi · Báo cáo tài chính cá nhân</span><h1>{e(heading)}</h1></div>
+  <dl class="meta"><div><dt>Kỳ báo cáo</dt><dd class="num">{dmy(a)} – {dmy(b)}</dd></div><div><dt>Số ngày</dt><dd>{days}</dd></div>
+  <div><dt>Giao dịch</dt><dd>{r['count']}</dd></div><div><dt>Đơn vị</dt><dd>đồng (₫)</dd></div></dl>
+</header>
+<section class="summary"><h2>Điểm chính</h2><ol class="points">{''.join(f'<li>{x}</li>' for x in pts)}</ol></section>
+<div class="kgroup"><span class="kg-title">Kết quả trong kỳ</span><div class="kpis">
+  {kpi('Thu nhập', vnd(r['income']), cmp(r['income'], p['income'], True), 'pos')}
+  {kpi('Chi tiêu', vnd(r['expense']), cmp(r['expense'], p['expense'], False), 'neg')}
+  {kpi('Tỷ lệ giữ lại', pct(save_rate) if save_rate is not None else '–', f'thu nhập − chi tiêu = {vnd(r["saving"])}')}
+  {kpi('Chi trung bình / ngày', vnd(r['expense'] / days), f'trên {days} ngày đã qua')}
+</div></div>
+<div class="kgroup"><span class="kg-title">Vị thế cuối kỳ ({dmy(b)})</span><div class="kpis">
+  {kpi('Tiền mặt', vnd(pos['cash']), f'đầu kỳ {vnd(start_cash)}')}
+  {kpi('Đang đầu tư', vnd(pos['invest']), f"{len(pos['port'])} danh mục", 'inv')}
+  {kpi('Dư nợ phải trả', vnd(debt), f'{len([x for x in ls if x["remaining"]])} khoản nợ', 'neg')}
+  {kpi('Hoa hồng tới hạn chưa nhận', vnd(due), f'{len(dues)} căn/khoản', 'due')}
+</div></div>"""]
+    out.append(sec(1, 'Dòng tiền trong kỳ', f'''<div class="grid2">
+  <div class="card"><h3>Tiền mặt đầu kỳ → cuối kỳ</h3><table class="t"><tbody>{flow_html}</tbody>
+    <tfoot><tr><td>Tiền mặt cuối kỳ</td><td class="r num">{num(pos['cash'])}</td><td class="w-bar">{bar(pos['cash'], big)}</td></tr></tfoot></table></div>
+  <div class="card"><h3>Thu nhập theo nguồn</h3><table class="t">
+    <thead><tr><th>Nguồn</th><th class="r">Số tiền</th><th class="r">Tỷ trọng</th></tr></thead>
+    <tbody>{inc_rows}</tbody><tfoot><tr><td>Tổng thu nhập</td><td class="r num">{num(r['income'])}</td><td></td></tr></tfoot></table>{rep_block}</div>
+</div>''', 'Vốn có sẵn, đầu tư và trả nợ làm tiền mặt thay đổi nhưng không tính là thu nhập hay chi tiêu.', True))
+    if exp_sorted:
+        out.append(sec(2, 'Chi tiêu theo hạng mục', f'''<div class="card"><table class="t">
+  <thead><tr><th>#</th><th>Hạng mục</th><th class="r">Số khoản</th><th class="r">Số tiền</th><th class="r">Tỷ trọng</th><th></th>{'<th class="r">Hạn mức</th>' if has_budget else ''}</tr></thead>
+  <tbody>{exp_rows}</tbody>
+  <tfoot><tr><td></td><td>Tổng chi tiêu</td><td class="r">{sum(cnt.values())}</td><td class="r num">{num(r['expense'])}</td><td class="r">100%</td><td></td>{'<td></td>' if has_budget else ''}</tr></tfoot></table></div>''',
+            f'3 hạng mục lớn nhất chiếm {pct(top3 / r["expense"])} tổng chi tiêu.'))
+    out.append(sec(3, 'Tài sản và nợ', f'''<div class="grid2">
+  <div class="card"><h3>Tài sản đang có</h3><table class="t"><tbody>
+    <tr><td>Tiền mặt</td><td class="r num">{num(pos['cash'])}</td></tr>
+    <tr><td>Đang đầu tư</td><td class="r num">{num(pos['invest'])}</td></tr>{port_rows}
+  </tbody><tfoot><tr><td>Tổng tài sản (A)</td><td class="r num">{num(pos['assets'])}</td></tr></tfoot></table></div>
+  <div class="card"><h3>Nợ phải trả</h3><table class="t"><tbody>{loan_rows or '<tr><td class="muted">Không có khoản nợ.</td><td></td></tr>'}</tbody>
+    <tfoot><tr><td>Tổng dư nợ (B)</td><td class="r num">{num(debt)}</td></tr></tfoot></table></div>
 </div>
-"""
+<div class="card equation">
+  <div><span>Tài sản ròng hiện tại (A − B)</span><b class="num {'neg' if net < 0 else 'pos'}">{vnd(net)}</b></div>
+  <span class="op">+</span>
+  <div><span>Hoa hồng đã tới hạn chưa nhận</span><b class="num due">{vnd(due)}</b></div>
+  <span class="op">=</span>
+  <div><span>Tài sản ròng khi thu đủ phần tới hạn</span><b class="num {'neg' if net + due < 0 else 'pos'}">{vnd(net + due)}</b></div>
+</div>''', f'Hoa hồng chưa nhận ({vnd(comm_left)}) chưa được tính vào tài sản cho tới khi tiền về tài khoản.', True))
+    if cs:
+        out.append(sec(4, 'Hoa hồng chưa nhận theo căn', f'''<div class="gcards">{grp_cards}</div>
+<div class="card"><table class="t comm">
+  <thead><tr><th>Căn / khoản</th><th>Đợt</th><th class="r">Tổng HH</th><th class="r">Đã nhận</th><th>Mốc KH trả<br>→ HH nhận</th><th class="r">Tới hạn<br>chưa nhận</th><th class="r">Chưa<br>tới hạn</th></tr></thead>
+  <tbody>{comm_rows}</tbody>
+  <tfoot><tr><td colspan="2">Tổng {len(cs)} căn/khoản</td><td class="r num">{num(T_all)}</td><td class="r num">{num(R_all)}</td><td></td><td class="r num due">{num(due)}</td><td class="r num">{num(comm_left - due)}</td></tr></tfoot></table></div>''',
+            'Quy định nhận: Đợt 1 – khách thanh toán 30/50/70% thì nhận 50/90/100% hoa hồng; Đợt 2 – 15/25/45/70% thì nhận 50/70/95/100%. '
+            '“Tới hạn chưa nhận” là phần đã đủ điều kiện theo mốc khách đã thanh toán nhưng tiền chưa về; mỗi nhóm xếp khoản tới hạn lớn nhất lên đầu.'))
+    if todo:
+        out.append(sec(5, 'Việc cần làm', f'<div class="card"><ul class="todo">{"".join(f"<li>{x}</li>" for x in todo)}</ul></div>', keep=True))
+    out.append(f'''<section class="appendix"><h2><span class="sn">PL</span>Phụ lục: giao dịch trong kỳ</h2>
+<div class="card"><table class="t compact"><thead><tr><th>Ngày</th><th>Hạng mục</th><th>Ghi chú</th><th class="r">Số tiền</th></tr></thead>
+<tbody>{appx or '<tr><td colspan="4" class="muted">Chưa có giao dịch.</td></tr>'}</tbody></table></div></section>
+<footer>Lập từ dữ liệu app Sổ Thu Chi, số liệu chốt ngày {dmy(b)}. Tổng tài sản = thu nhập + vốn có sẵn − chi tiêu − trả nợ; tiền mặt = tổng tài sản − phần đang đầu tư; tài sản ròng = tổng tài sản − dư nợ.</footer>
+</div>
+''')
+    return '\n'.join(out)
 
 
 def main():
