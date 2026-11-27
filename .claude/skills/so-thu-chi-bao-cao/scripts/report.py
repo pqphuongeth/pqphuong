@@ -130,6 +130,7 @@ def comm_status(tx, upto):
         pct = steps[reached - 1][1] if reached else 0
         due_amt = int(total * pct / 100 + 0.5)   # làm tròn như Math.round của app (không dùng round kiểu ngân hàng)
         due_left = max(min(due_amt - (total - rem), rem), 0) if steps else 0
+        if due_left < 100: due_left = 0   # phần lẻ do làm tròn số liệu, giống app
         out.append(dict(id=cid, code=c.get('code', cid), group=c.get('group', 'banhang'), batch=c.get('batch', ''), total=total,
                         received=total - rem, remaining=rem, got=got, sched=sched_of(c), reached=reached, pct=pct,
                         paid_pct=steps[reached - 1][0] if reached else 0, due_amt=due_amt, due_left=due_left))

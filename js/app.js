@@ -726,7 +726,8 @@
     sc.steps.forEach((x, k) => { if (st[k]) reached = k + 1; });
     const pct = reached ? sc.steps[reached - 1][1] : 0;
     const dueAmt = Math.round(i.total * pct / 100);
-    const dueLeft = sc.steps.length ? Math.max(Math.min(dueAmt - i.receivedAll, i.remaining), 0) : 0;
+    let dueLeft = sc.steps.length ? Math.max(Math.min(dueAmt - i.receivedAll, i.remaining), 0) : 0;
+    if (dueLeft < 100) dueLeft = 0;   // phần lẻ do làm tròn số liệu trong bảng tổng hợp, không phải tiền tới hạn
     return { ...i, sched: schedOf(c), steps: sc.steps, reached, pct, dueAmt, dueLeft, notDue: Math.max(i.remaining - dueLeft, 0) };
   }
   function commTotal() {
